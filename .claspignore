@@ -1,0 +1,5 @@
+# Ignorar control de versiones y documentación en clasp push
+**/**
+!appsscript.json
+!*.js
+!src/**/*.js
