@@ -13,16 +13,16 @@ class Memory {
     // 256 bytes continuos inicializados a 0x00 (NOP / Vacío)
     this.SIZE = 256;
     this.CODE_SEGMENT_START = 0x00;
-    this.CODE_SEGMENT_END = 0x7F; // 128 bytes para código
+    this.CODE_SEGMENT_END = 0x7F; // 128 bytes para código (00h - 7Fh)
     this.DATA_SEGMENT_START = 0x80;
-    this.DATA_SEGMENT_END = 0xFF; // 128 bytes para datos
+    this.DATA_SEGMENT_END = 0xFF; // 128 bytes para datos (80h - FFh)
 
     this.bytes = new Uint8Array(this.SIZE);
     this.reset();
   }
 
   /**
-   * Restablece toda la memoria a ceros.
+   * Restablece toda la memoria a ceros (0x00).
    */
   reset() {
     for (let i = 0; i < this.SIZE; i++) {
@@ -31,15 +31,16 @@ class Memory {
   }
 
   /**
-   * Valida y normaliza una dirección de 8 bits (0x00 - 0xFF).
+   * Valida y normaliza una dirección de 8 bits (0x00 - 0xFF) con wrap-around de hardware.
    * @param {number} address Dirección de memoria
-   * @returns {number} Dirección acotada a 8 bits
+   * @returns {number} Dirección acotada al rango 0-255
    */
   normalizeAddress(address) {
-    if (typeof address !== 'number' || isNaN(address)) {
-      throw new Error(`[Memory Error] Dirección inválida: ${address}`);
+    if (address === null || address === undefined || isNaN(address)) {
+      return 0x00;
     }
-    return address & 0xFF;
+    // Aritmética modular de bus de direcciones de 8 bits
+    return Math.floor(address) & 0xFF;
   }
 
   /**
@@ -61,7 +62,7 @@ class Memory {
    */
   Write(address, value) {
     const addr = this.normalizeAddress(address);
-    const val = (value || 0) & 0xFF; // Garantiza palabra estricta de 8 bits
+    const val = (typeof value === 'number' && !isNaN(value)) ? Math.floor(value) & 0xFF : 0x00;
     this.bytes[addr] = val;
   }
 
@@ -100,6 +101,24 @@ class Memory {
   }
 
   /**
+   * Exporta una matriz bidimensional 16x16 con los valores actuales formateados en Hex.
+   * Ideal para volcar directamente al rango de Google Sheets.
+   * @returns {Array<Array<string>>}
+   */
+  dumpMatrixHex() {
+    const matrix = [];
+    for (let r = 0; r < 16; r++) {
+      const row = [];
+      for (let c = 0; c < 16; c++) {
+        const addr = (r * 16) + c;
+        row.push(Memory.toHex8(this.Read(addr)));
+      }
+      matrix.push(row);
+    }
+    return matrix;
+  }
+
+  /**
    * Obtiene las coordenadas en la matriz 16x16 (fila 0-15, columna 0-15).
    * @param {number} address
    * @returns {{row: number, col: number}}
@@ -113,7 +132,7 @@ class Memory {
   }
 
   /**
-   * Formateador auxiliar a Hexadecimal de 2 dígitos (ej: "0x1A" o "1Ah").
+   * Formateador auxiliar a Hexadecimal de 2 dígitos (ej: "1A").
    * @param {number} val
    * @returns {string}
    */
@@ -143,5 +162,5 @@ class Memory {
   }
 }
 
-// Instancia global de memoria para Google Apps Script
+// Instancia global de memoria para el entorno Google Apps Script
 var globalMemory = new Memory();
