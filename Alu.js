@@ -18,14 +18,14 @@ class ALU {
 
   /**
    * Actualiza las banderas ZF y SF en función del resultado de 8 bits.
+   * - ZF (Zero Flag): 1 si el byte resultante es exactamente 0x00.
+   * - SF (Sign Flag): 1 si el Bit 7 (MSB) es 1 (representación negativa en C2).
    * @param {number} result Resultado de la operación
    */
   updateZeroAndSignFlags(result) {
     const r8 = result & 0xFF;
-    // ZF: Se activa si el byte resultante es exactamente 0x00
     this.registers.ZF = (r8 === 0) ? 1 : 0;
-    // SF: Se activa si el Bit 7 (MSB) está en alto (1 = negativo en C2)
-    this.registers.SF = ((r8 & 0x80) !== 0) ? 1 : 0;
+    this.registers.SF = ((r8 & 0x80) === 0x80) ? 1 : 0;
   }
 
   /**
@@ -57,7 +57,7 @@ class ALU {
     const op1 = a & 0xFF;
     const op2 = b & 0xFF;
     const rawResult = op1 - op2;
-    const result8 = rawResult & 0xFF;
+    const result8 = (rawResult < 0 ? (rawResult + 256) : rawResult) & 0xFF;
 
     // CF: 1 si existió préstamo (op1 < op2 en aritmética sin signo)
     this.registers.CF = (op1 < op2) ? 1 : 0;
@@ -76,7 +76,7 @@ class ALU {
     const rawResult = op1 + 1;
     const result8 = rawResult & 0xFF;
 
-    // INC afecta ZF y SF (en arquitectura x86 no altera CF, pero calculamos desbordamiento)
+    // En estándar x86, INC no altera el Carry Flag previo
     this.updateZeroAndSignFlags(result8);
     return result8;
   }
@@ -89,8 +89,9 @@ class ALU {
   DEC(a) {
     const op1 = a & 0xFF;
     const rawResult = op1 - 1;
-    const result8 = rawResult & 0xFF;
+    const result8 = (rawResult < 0 ? 255 : rawResult) & 0xFF;
 
+    // En estándar x86, DEC no altera el Carry Flag previo
     this.updateZeroAndSignFlags(result8);
     return result8;
   }
@@ -105,7 +106,7 @@ class ALU {
     const op1 = a & 0xFF;
     const op2 = b & 0xFF;
     const rawResult = op1 - op2;
-    const result8 = rawResult & 0xFF;
+    const result8 = (rawResult < 0 ? (rawResult + 256) : rawResult) & 0xFF;
 
     this.registers.CF = (op1 < op2) ? 1 : 0;
     this.updateZeroAndSignFlags(result8);
@@ -118,7 +119,7 @@ class ALU {
    * @returns {number}
    */
   AND(a, b) {
-    const result8 = (a & b) & 0xFF;
+    const result8 = ((a & 0xFF) & (b & 0xFF)) & 0xFF;
     this.registers.CF = 0; // Las operaciones lógicas limpian el Carry
     this.updateZeroAndSignFlags(result8);
     return result8;
@@ -131,7 +132,7 @@ class ALU {
    * @returns {number}
    */
   OR(a, b) {
-    const result8 = (a | b) & 0xFF;
+    const result8 = ((a & 0xFF) | (b & 0xFF)) & 0xFF;
     this.registers.CF = 0;
     this.updateZeroAndSignFlags(result8);
     return result8;
@@ -144,7 +145,7 @@ class ALU {
    * @returns {number}
    */
   XOR(a, b) {
-    const result8 = (a ^ b) & 0xFF;
+    const result8 = ((a & 0xFF) ^ (b & 0xFF)) & 0xFF;
     this.registers.CF = 0;
     this.updateZeroAndSignFlags(result8);
     return result8;
@@ -156,7 +157,7 @@ class ALU {
    * @returns {number}
    */
   NOT(a) {
-    const result8 = (~a) & 0xFF;
+    const result8 = (~(a & 0xFF)) & 0xFF;
     this.updateZeroAndSignFlags(result8);
     return result8;
   }
