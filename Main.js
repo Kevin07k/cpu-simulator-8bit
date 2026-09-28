@@ -114,6 +114,40 @@ function btnSetupSheet() {
 }
 
 /**
+ * Macro: Cargar en memoria el programa de la Serie de Fibonacci.
+ */
+function btnLoadFibonacci() {
+  globalMemory.reset();
+  globalRegisters.reset();
+  globalCPU.reset();
+  globalLogger.clear();
+
+  const prog = DemoPrograms.getFibonacciProgram();
+  globalMemory.loadProgram(prog, 0x00);
+  globalLogger.log(`Programa Fibonacci cargado (${prog.length} bytes en 0x00)`, 'LOAD');
+
+  saveState();
+  globalUI.renderCycle(globalCPU, globalLogger);
+}
+
+/**
+ * Macro: Cargar en memoria el programa de Multiplicación por sumas sucesivas.
+ */
+function btnLoadMultiplication() {
+  globalMemory.reset();
+  globalRegisters.reset();
+  globalCPU.reset();
+  globalLogger.clear();
+
+  const prog = DemoPrograms.getMultiplicationProgram();
+  globalMemory.loadProgram(prog, 0x00);
+  globalLogger.log(`Programa Multiplicación cargado (${prog.length} bytes en 0x00)`, 'LOAD');
+
+  saveState();
+  globalUI.renderCycle(globalCPU, globalLogger);
+}
+
+/**
  * Macro: Ejecutar una sola micro-fase del ciclo (Fetch, Decode, Execute, Store).
  */
 function btnStepPhase() {
@@ -160,7 +194,7 @@ function btnRunContinuous() {
     return;
   }
 
-  const MAX_CYCLES = 250; // Guardia de seguridad contra bucles infinitos
+  const MAX_CYCLES = 350; // Guardia de seguridad contra bucles infinitos
   let cycles = 0;
 
   while (!globalCPU.isHalted && cycles < MAX_CYCLES) {
