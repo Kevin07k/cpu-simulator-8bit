@@ -5,39 +5,44 @@
 **Materia:** Arquitectura de Computadoras (SIS-131)  
 **Docente:** Ing. Paulo César Loayza Carrasco  
 **Estudiante:** Kevin (Kevin07k)  
+**Fecha de Entrega:** 29 de Septiembre de 2026  
 
 ---
 
-## 1. Descripción del Proyecto
+## 1. Contexto Académico y Proyección Formativa
 
-Este proyecto implementa un **Simulador de Computadora von Neumann de 8 bits** completamente funcional, modular y visual, diseñado para ejecutarse sobre **Google Sheets** utilizando lógica de bajo nivel programada en **JavaScript (Google Apps Script - GAS)** y versionada en local mediante la herramienta oficial **Google Clasp (`@google/clasp`)**.
+El presente proyecto implementa un **Simulador de Computadora von Neumann de 8 bits** con ciclo de instrucción completo y gestión de memoria física, desarrollado en **JavaScript modular para Google Apps Script (GAS)** y desplegado sobre una interfaz interactiva de **Google Sheets**.
 
-El procesador modela con rigurosidad matemática y de hardware las cuatro fases del ciclo de reloj (**Fetch, Decode, Execute, Store**), incorporando buses internos, registros dedicados, una Unidad Aritmético-Lógica (ALU) con cálculo de banderas (`ZF`, `CF`, `SF`), y una memoria RAM de 256 bytes (`0x00` - `0xFF`) segmentada lógicamente.
+### 🔹 Evolución Modular hacia el Segundo Parcial
+El diseño de software sigue estrictamente el principio de responsabilidad única (SRP) y desacoplamiento de componentes. El núcleo actual (Memoria RAM, Registros, ALU y Unidad de Control) está arquitecturado de forma extensible para incorporar en el **Segundo Parcial**:
+1. Bus del Sistema multiplexado en tiempo (Multiplexed System Bus).
+2. Controladores de Entrada/Salida (I/O Controllers) y mapeo por puertos / memoria.
+3. Gestión de Interrupciones vectorizadas y periféricos interactivos.
 
 ---
 
-## 2. Diagrama de Arquitectura de Hardware (Mermaid)
+## 2. Diagrama de Bloques de Arquitectura de Hardware (Mermaid)
 
-El siguiente diagrama detalla la interconexión entre la Memoria Principal, el Banco de Registros, los Buses del Sistema y la Unidad de Control:
+El siguiente esquema modela las interconexiones entre los componentes del procesador y la memoria:
 
 ```mermaid
 graph TD
     subgraph Memoria_Principal ["Memoria Principal RAM (256 Bytes: 00h - FFh)"]
-        RAM["RAM Matrix 16x16<br/>Segmento Código: 00h - 7Fh<br/>Segmento Datos: 80h - FFh"]
+        RAM["RAM Matrix 16x16<br/>Segmento Código (CS): 00h - 7Fh (128 Bytes)<br/>Segmento Datos (DS): 80h - FFh (128 Bytes)"]
     end
 
     subgraph CPU ["Unidad Central de Procesamiento (CPU de 8 bits)"]
         subgraph Bus_Interface ["Interfaz de Bus y Registros de Enlace"]
-            MAR["MAR (Memory Address Register)<br/>8 bits"]
-            MDR["MDR / MBR (Memory Data Register)<br/>8 bits"]
+            MAR["MAR (Memory Address Register)<br/>8 bits | Líneas de Dirección"]
+            MDR["MDR / MBR (Memory Data Register)<br/>8 bits | Líneas de Datos"]
         end
 
-        subgraph Registros ["Banco de Registros Internos"]
-            PC["PC (Program Counter)<br/>8 bits"]
-            IR["IR (Instruction Register)<br/>8 bits"]
-            AX["AX / AC (Acumulador)<br/>8 bits"]
-            BX["BX (Propósito General)<br/>8 bits"]
-            FLAGS["FLAGS (Registro de Estado)<br/>ZF | CF | SF"]
+        subgraph Banco_Registros ["Banco de Registros Internos"]
+            PC["PC (Program Counter)<br/>8 bits | Puntero de Instrucción"]
+            IR["IR (Instruction Register)<br/>8 bits | Registro de Instrucción"]
+            AX["AX / AC (Acumulador)<br/>8 bits | Cómputo Principal"]
+            BX["BX (Registro Auxiliar)<br/>8 bits | Propósito General"]
+            FLAGS["FLAGS (Registro de Estado)<br/>ZF (Zero) | CF (Carry) | SF (Sign)"]
         end
 
         subgraph Procesamiento ["Unidad de Control & ALU"]
@@ -46,16 +51,16 @@ graph TD
         end
     end
 
-    %% Conexiones de Bus de Direcciones y Datos
-    PC -->|Puntero de Instrucción| MAR
-    MAR -->|Líneas de Dirección| RAM
-    RAM <-->|Líneas de Datos (Lectura/Escritura)| MDR
+    %% Flujos de Direcciones y Datos
+    PC -->|Puntero| MAR
+    MAR -->|Address Bus 8-bit| RAM
+    RAM <-->|Data Bus 8-bit (Read/Write)| MDR
     MDR -->|Opcode / Operando| IR
-    IR -->|Instrucción en Curso| CU
+    IR -->|Instrucción| CU
     
-    %% Flujo de ALU y Registros
+    %% Conexiones ALU y Registros
     CU -->|Señales de Control| ALU
-    CU -->|Señales de Habilitación| Registros
+    CU -->|Enable Signals| Banco_Registros
     AX <-->|Operando 1 / Destino| ALU
     BX -->|Operando 2| ALU
     MDR -->|Operando Inmediato/Memoria| ALU
@@ -65,125 +70,140 @@ graph TD
 
 ---
 
-## 3. Conjunto de Instrucciones (ISA Ensamblador)
+## 3. Descomposición del Ciclo de Instrucción (4 Fases del Reloj)
 
-El repertorio de instrucciones (ISA) ha sido diseñado siguiendo convenciones de ensamblador de la familia x86 de 8 bits, soportando direccionamiento inmediato, por registro y directo en memoria.
-
-| Opcode (Hex) | Mnemónico | Operandos | Bytes | Ciclos | Descripción Técnica | Banderas Afectadas |
-| :---: | :--- | :--- | :---: | :---: | :--- | :---: |
-| `0x01` | `MOV` | `AX, imm` | 2 | 4 | Carga el valor inmediato `imm` de 8 bits en el registro `AX`. | Ninguna |
-| `0x02` | `MOV` | `BX, imm` | 2 | 4 | Carga el valor inmediato `imm` de 8 bits en el registro `BX`. | Ninguna |
-| `0x03` | `MOV` | `AX, BX` | 1 | 4 | Copia el contenido del registro `BX` al registro `AX`. | Ninguna |
-| `0x04` | `MOV` | `BX, AX` | 1 | 4 | Copia el contenido del registro `AX` al registro `BX`. | Ninguna |
-| `0x05` | `LOAD` | `AX, [dir]` | 2 | 4 | Lee el byte en la dirección `dir` de RAM hacia `AX`. | Ninguna |
-| `0x06` | `LOAD` | `BX, [dir]` | 2 | 4 | Lee el byte en la dirección `dir` de RAM hacia `BX`. | Ninguna |
-| `0x07` | `STORE` | `[dir], AX` | 2 | 4 | Escribe el contenido de `AX` en la dirección `dir` de RAM. | Ninguna |
-| `0x08` | `STORE` | `[dir], BX` | 2 | 4 | Escribe el contenido de `BX` en la dirección `dir` de RAM. | Ninguna |
-| `0x10` | `ADD` | `AX, imm` | 2 | 4 | Suma `imm` a `AX` (`AX = AX + imm`). Actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x11` | `ADD` | `AX, BX` | 1 | 4 | Suma `BX` a `AX` (`AX = AX + BX`). Actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x12` | `SUB` | `AX, imm` | 2 | 4 | Resta `imm` de `AX` (`AX = AX - imm`). Actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x13` | `SUB` | `AX, BX` | 1 | 4 | Resta `BX` de `AX` (`AX = AX - BX`). Actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x14` | `INC` | `AX` | 1 | 4 | Incrementa `AX` en 1 (`AX = AX + 1`). | `ZF`, `CF`, `SF` |
-| `0x15` | `INC` | `BX` | 1 | 4 | Incrementa `BX` en 1 (`BX = BX + 1`). | `ZF`, `CF`, `SF` |
-| `0x16` | `DEC` | `AX` | 1 | 4 | Decrementa `AX` en 1 (`AX = AX - 1`). | `ZF`, `CF`, `SF` |
-| `0x17` | `DEC` | `BX` | 1 | 4 | Decrementa `BX` en 1 (`BX = BX - 1`). | `ZF`, `CF`, `SF` |
-| `0x18` | `CMP` | `AX, imm` | 2 | 4 | Realiza `AX - imm` descartando resultado; solo actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x19` | `CMP` | `AX, BX` | 1 | 4 | Realiza `AX - BX` descartando resultado; solo actualiza banderas. | `ZF`, `CF`, `SF` |
-| `0x20` | `AND` | `AX, imm` | 2 | 4 | Operación lógica AND bit a bit entre `AX` e `imm`. | `ZF`, `SF`, `CF=0` |
-| `0x21` | `AND` | `AX, BX` | 1 | 4 | Operación lógica AND bit a bit entre `AX` y `BX`. | `ZF`, `SF`, `CF=0` |
-| `0x22` | `OR` | `AX, imm` | 2 | 4 | Operación lógica OR bit a bit entre `AX` e `imm`. | `ZF`, `SF`, `CF=0` |
-| `0x23` | `OR` | `AX, BX` | 1 | 4 | Operación lógica OR bit a bit entre `AX` y `BX`. | `ZF`, `SF`, `CF=0` |
-| `0x24` | `XOR` | `AX, imm` | 2 | 4 | Operación lógica XOR bit a bit entre `AX` e `imm`. | `ZF`, `SF`, `CF=0` |
-| `0x25` | `XOR` | `AX, BX` | 1 | 4 | Operación lógica XOR bit a bit entre `AX` y `BX`. | `ZF`, `SF`, `CF=0` |
-| `0x26` | `NOT` | `AX` | 1 | 4 | Invierte todos los bits de `AX` (Complemento a 1). | `ZF`, `SF` |
-| `0x30` | `JMP` | `dir` | 2 | 4 | Salto incondicional: `PC = dir`. | Ninguna |
-| `0x31` | `JZ` | `dir` | 2 | 4 | Salto si Zero (`ZF == 1`): `PC = dir`. Si no, continúa. | Ninguna |
-| `0x32` | `JNZ` | `dir` | 2 | 4 | Salto si Not Zero (`ZF == 0`): `PC = dir`. Si no, continúa. | Ninguna |
-| `0xFF` | `HLT` | *(ninguno)* | 1 | 4 | Detiene el ciclo de reloj del procesador (Halt). | Ninguna |
-
----
-
-## 4. Descomposición del Ciclo de Instrucción (4 Fases)
-
-Cada instrucción se ejecuta estrictamente a través de una Máquina de Estados Finitos (FSM):
+Cada instrucción del procesador atraviesa estrictamente las 4 fases de la Máquina de Estados Finitos (FSM):
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Fetch
-    Fetch --> Decode: Opcode cargado en IR / PC incrementado
-    Decode --> Execute: Operandos listos / Señales ALU activas
-    Execute --> Store: Resultado computado / Banderas calculadas
-    Store --> Fetch: Escritura en AX/BX o RAM finalizada
+    [*] --> Fetch: Inicio de Ciclo
+    Fetch --> Decode: Opcode cargado en IR / PC = PC + 1
+    Decode --> Execute: Operando preparado (MAR/MDR) / ALU activa
+    Execute --> Store: Resultado de ALU / Banderas calculadas
+    Store --> Fetch: Escritura en AX, BX o RAM finalizada
     Execute --> Halt: Si IR == 0xFF (HLT)
-    Halt --> [*]
+    Halt --> [*]: Reloj detenido
 ```
 
 1. **Fetch (Búsqueda):**
-   * $MAR \leftarrow PC$
-   * $MDR \leftarrow \text{RAM}[MAR]$
-   * $IR \leftarrow MDR$
-   * $PC \leftarrow PC + 1$
+   $$\text{MAR} \leftarrow \text{PC}$$
+   $$\text{MDR} \leftarrow \text{RAM}[\text{MAR}]$$
+   $$\text{IR} \leftarrow \text{MDR}$$
+   $$\text{PC} \leftarrow (\text{PC} + 1) \pmod{256}$$
 2. **Decode (Decodificación):**
-   * La Unidad de Control examina el byte en $IR$, identifica el formato de instrucción y, de requerir un operando de 1 byte adicional (inmediato o dirección), realiza una lectura secundaria en $PC$ avanzando el contador.
+   * La Unidad de Control interpreta el byte en $\text{IR}$ determinando el modo de direccionamiento.
+   * Si la instrucción ocupa 2 bytes (inmediata o directa), se recupera el segundo byte: $\text{MAR} \leftarrow \text{PC}$, $\text{MDR} \leftarrow \text{RAM}[\text{MAR}]$, $\text{Operando} \leftarrow \text{MDR}$, $\text{PC} \leftarrow \text{PC} + 1$.
 3. **Execute (Ejecución):**
-   * La ALU procesa la operación seleccionada (suma, resta, lógica, comparación) o la Unidad de Control evalúa la condición de salto según las banderas $ZF, CF, SF$.
+   * La ALU procesa la operación aritmética o lógica y actualiza el registro de estado $\text{FLAGS} (\text{ZF}, \text{CF}, \text{SF})$.
+   * Para saltos condicionales ($\text{JZ}, \text{JNZ}$) o incondicionales ($\text{JMP}$), se evalúa la condición y se carga la nueva dirección en el $\text{PC}$.
 4. **Store / Write-back (Almacenamiento):**
-   * El valor resultante se guarda en el registro destino ($AX$ o $BX$) o se transfiere vía $MDR \rightarrow \text{RAM}[MAR]$. Se refresca el registro de micro-operaciones en la hoja.
+   * El resultado se graba en el registro destino ($\text{AX}$ o $\text{BX}$) o se escribe en la memoria física: $\text{RAM}[\text{MAR}] \leftarrow \text{MDR}$.
 
 ---
 
-## 5. Segmentación del Mapa de Memoria RAM (256 Bytes)
+## 4. Conjunto Formal de Instrucciones (ISA Ensamblador)
 
-```
-00h +-------------------------------------------------------+
-    |                                                       |
-    |               SEGMENTO DE CÓDIGO (CS)                 |
-    |      (Instrucciones del Programa: 00h - 7Fh)          |
-    |                     128 Bytes                         |
-    |                                                       |
-7Fh +-------------------------------------------------------+
-80h +-------------------------------------------------------+
-    |                                                       |
-    |               SEGMENTO DE DATOS (DS)                  |
-    |     (Variables, Resultados, Arrays: 80h - FFh)        |
-    |                     128 Bytes                         |
-    |                                                       |
-FFh +-------------------------------------------------------+
-```
+| Opcode (Hex) | Mnemónico | Operandos | Bytes | Modos | Acción / Semántica | Banderas Afectadas |
+| :---: | :--- | :--- | :---: | :---: | :--- | :---: |
+| `0x01` | `MOV` | `AX, imm` | 2 | Inmediato | $AX \leftarrow imm$ | Ninguna |
+| `0x02` | `MOV` | `BX, imm` | 2 | Inmediato | $BX \leftarrow imm$ | Ninguna |
+| `0x03` | `MOV` | `AX, BX` | 1 | Registro | $AX \leftarrow BX$ | Ninguna |
+| `0x04` | `MOV` | `BX, AX` | 1 | Registro | $BX \leftarrow AX$ | Ninguna |
+| `0x05` | `LOAD` | `AX, [dir]` | 2 | Directo | $AX \leftarrow \text{RAM}[dir]$ | Ninguna |
+| `0x06` | `LOAD` | `BX, [dir]` | 2 | Directo | $BX \leftarrow \text{RAM}[dir]$ | Ninguna |
+| `0x07` | `STORE` | `[dir], AX` | 2 | Directo | $\text{RAM}[dir] \leftarrow AX$ | Ninguna |
+| `0x08` | `STORE` | `[dir], BX` | 2 | Directo | $\text{RAM}[dir] \leftarrow BX$ | Ninguna |
+| `0x10` | `ADD` | `AX, imm` | 2 | Inmediato | $AX \leftarrow AX + imm$ | `ZF`, `CF`, `SF` |
+| `0x11` | `ADD` | `AX, BX` | 1 | Registro | $AX \leftarrow AX + BX$ | `ZF`, `CF`, `SF` |
+| `0x12` | `SUB` | `AX, imm` | 2 | Inmediato | $AX \leftarrow AX - imm$ | `ZF`, `CF`, `SF` |
+| `0x13` | `SUB` | `AX, BX` | 1 | Registro | $AX \leftarrow AX - BX$ | `ZF`, `CF`, `SF` |
+| `0x14` | `INC` | `AX` | 1 | Implícito | $AX \leftarrow AX + 1$ | `ZF`, `CF`, `SF` |
+| `0x15` | `INC` | `BX` | 1 | Implícito | $BX \leftarrow BX + 1$ | `ZF`, `CF`, `SF` |
+| `0x16` | `DEC` | `AX` | 1 | Implícito | $AX \leftarrow AX - 1$ | `ZF`, `CF`, `SF` |
+| `0x17` | `DEC` | `BX` | 1 | Implícito | $BX \leftarrow BX - 1$ | `ZF`, `CF`, `SF` |
+| `0x18` | `CMP` | `AX, imm` | 2 | Inmediato | Prueba $AX - imm$ (solo flags) | `ZF`, `CF`, `SF` |
+| `0x19` | `CMP` | `AX, BX` | 1 | Registro | Prueba $AX - BX$ (solo flags) | `ZF`, `CF`, `SF` |
+| `0x20` | `AND` | `AX, imm` | 2 | Inmediato | $AX \leftarrow AX \land imm$ | `ZF`, `SF`, `CF=0` |
+| `0x21` | `AND` | `AX, BX` | 1 | Registro | $AX \leftarrow AX \land BX$ | `ZF`, `SF`, `CF=0` |
+| `0x22` | `OR` | `AX, imm` | 2 | Inmediato | $AX \leftarrow AX \lor imm$ | `ZF`, `SF`, `CF=0` |
+| `0x23` | `OR` | `AX, BX` | 1 | Registro | $AX \leftarrow AX \lor BX$ | `ZF`, `SF`, `CF=0` |
+| `0x24` | `XOR` | `AX, imm` | 2 | Inmediato | $AX \leftarrow AX \oplus imm$ | `ZF`, `SF`, `CF=0` |
+| `0x25` | `XOR` | `AX, BX` | 1 | Registro | $AX \leftarrow AX \oplus BX$ | `ZF`, `SF`, `CF=0` |
+| `0x26` | `NOT` | `AX` | 1 | Implícito | $AX \leftarrow \sim AX$ | `ZF`, `SF` |
+| `0x30` | `JMP` | `dir` | 2 | Directo | $PC \leftarrow dir$ | Ninguna |
+| `0x31` | `JZ` | `dir` | 2 | Directo | Si $ZF=1 \implies PC \leftarrow dir$ | Ninguna |
+| `0x32` | `JNZ` | `dir` | 2 | Directo | Si $ZF=0 \implies PC \leftarrow dir$ | Ninguna |
+| `0xFF` | `HLT` | *(ninguno)* | 1 | Implícito | Detiene el ciclo de reloj | Ninguna |
+
+---
+
+## 5. Análisis y Traza Matemática de los Programas Demostrativos
+
+### 🔹 Programa 1: Multiplicación por Sumas Sucesivas ($6 \times 7 = 42\text{d} / \text{0x2Ah}$)
+* **Ubicación de Variables:** Multiplicando en `RAM[0x80] = 0x06`, Multiplicador/Contador en `RAM[0x81] = 0x07`, Resultado en `RAM[0x82] = 0x00`.
+
+#### Traza de Iteraciones:
+| Iteración | Contador (`0x81`) | AX (`0x82`) | BX (`0x80`) | ZF | CF | Acción Realizada |
+| :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Inicio** | `0x07` (7d) | `0x00` (0d) | `0x06` (6d) | 0 | 0 | Inicialización en memoria |
+| **Paso 1** | `0x06` (6d) | `0x06` (6d) | `0x06` (6d) | 0 | 0 | Suma $0 + 6 = 6$ |
+| **Paso 2** | `0x05` (5d) | `0x0C` (12d) | `0x06` (6d) | 0 | 0 | Suma $6 + 6 = 12$ |
+| **Paso 3** | `0x04` (4d) | `0x12` (18d) | `0x06` (6d) | 0 | 0 | Suma $12 + 6 = 18$ |
+| **Paso 4** | `0x03` (3d) | `0x18` (24d) | `0x06` (6d) | 0 | 0 | Suma $18 + 6 = 24$ |
+| **Paso 5** | `0x02` (2d) | `0x1E` (30d) | `0x06` (6d) | 0 | 0 | Suma $24 + 6 = 30$ |
+| **Paso 6** | `0x01` (1d) | `0x24` (36d) | `0x06` (6d) | 0 | 0 | Suma $30 + 6 = 36$ |
+| **Paso 7** | `0x00` (0d) | `0x2A` (42d) | `0x06` (6d) | 1 | 0 | Suma $36 + 6 = 42$ |
+| **Fin** | `0x00` (0d) | `0x2A` (42d) | `0x06` (6d) | 1 | 0 | $\text{CMP } AX, 0 \implies ZF=1 \implies \text{JZ}$ a `HLT` |
+
+---
+
+### 🔹 Programa 2: Serie de Fibonacci (Hasta 8-bit Overflow: 233d / 0xE9h)
+* **Términos generados:** $0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233 (\text{0xE9h})$.
+* **Almacenamiento dinámico:** $F(n-2) \rightarrow \text{0x80}$, $F(n-1) \rightarrow \text{0x81}$, $F(n) \rightarrow \text{0x82}$.
 
 ---
 
 ## 6. Manual de Usuario y Guía de Operación
 
 1. **Configuración Inicial:**
-   * Abrir la hoja de cálculo de Google vinculada.
-   * Hacer clic en el menú superior o botón **`🛠️ FORMAT / RESET SHEET`** para generar automáticamente la cuadrícula 16x16, el panel de registros y el log de micro-operaciones con el formato condicional.
-2. **Carga del Programa Demostrativo:**
-   * Presionar **`📂 LOAD FIBONACCI`** para ensamblar e inyectar en la memoria `0x00` el algoritmo de cálculo de la serie de Fibonacci.
-   * O presionar **`📂 LOAD MULTIPLICATION`** para cargar el algoritmo de multiplicación por sumas sucesivas.
-3. **Ejecución del Simulador:**
-   * **`⏯️ STEP` (Paso a Paso):** Avanza una sola fase o instrucción completa, iluminando en amarillo/azul el registro o celda de memoria que está siendo leída o modificada en ese instante.
-   * **`▶️ RUN` (Modo Continuo):** Ejecuta el programa de manera fluida hasta alcanzar la instrucción `HLT (0xFF)`.
-   * **`⏸️ PAUSE`:** Pausa la ejecución continua.
-   * **`🔄 RESET`:** Restaura todos los registros ($PC, IR, MAR, MDR, AX, BX, FLAGS$) y el log a su estado inicial.
+   * Abrir la hoja de cálculo de Google.
+   * Ejecutar en el menú superior **`⚙️ Simulador CPU 8-Bit` ➔ `🛠️ Formatear / Reiniciar Hoja (Setup)`**.
+2. **Carga de Algoritmos:**
+   * Seleccionar **`📂 Cargar Programa: Multiplicación Aritmética`** o **`📂 Cargar Programa: Serie de Fibonacci`**.
+3. **Modos de Ejecución:**
+   * **`⏯️ Paso a Paso (Micro-fase):`** Avanza exactamente una fase del reloj ($\text{Fetch} \rightarrow \text{Decode} \rightarrow \text{Execute} \rightarrow \text{Store}$).
+   * **`⏭️ Paso a Paso (Instrucción):`** Ejecuta las 4 fases de una instrucción completa en un solo clic.
+   * **`▶️ Ejecución Continua (Run):`** Procesa el programa automáticamente hasta encontrar `HLT (0xFF)`.
+   * **`🔄 Reset:`** Restaura los registros $PC, IR, MAR, MDR, AX, BX$ y banderas a $0$, preservando el programa en memoria RAM.
 
 ---
 
-## 7. Estructura Modular del Código Fuente
+## 7. Estructura del Repositorio y Modularidad
 
 ```
-├── .clasp.json              # Configuración de vinculación con Google Apps Script
-├── .claspignore             # Filtros de subida para el despliegue
-├── .gitignore               # Exclusiones de control de versiones
-├── appsscript.json          # Manifiesto oficial del proyecto Apps Script
-├── README.md                # Documentación técnica integral
-├── Memory.js                # Módulo de Memoria RAM (256 bytes, matriz 16x16, Read/Write)
-├── Registers.js             # Banco de Registros (PC, IR, MAR, MDR, AX, BX, FLAGS)
-├── Alu.js                   # Unidad Aritmético-Lógica (operaciones y cálculo de flags)
-├── ControlUnit.js           # Decodificador de instrucciones y tabla de opcodes
-├── Cpu.js                   # Motor de ejecución del ciclo FSM (Fetch-Decode-Execute-Store)
-├── Logger.js                # Sistema de registro cronológico de micro-operaciones
-├── Ui.js                    # Renderizado gráfico, paleta visual y animaciones en Sheets
-├── Programs.js              # Ensamblador de programas demostrativos (Fibonacci, Multiplicación)
-└── Main.js                  # Punto de entrada y macros de vinculación con botones de Sheets
+├── .clasp.json              # Configuración de enlace a Google Apps Script
+├── .claspignore             # Filtro de despliegue local ➔ nube
+├── .gitignore               # Exclusiones de control de versiones Git
+├── appsscript.json          # Manifiesto oficial del proyecto Apps Script (V8 Runtime)
+├── README.md                # Documentación técnica formal con Mermaid y tablas ISA
+├── Memory.js                # RAM de 256 bytes (00h-FFh), segmentación CS/DS y Read/Write
+├── Registers.js             # Banco de Registros (PC, IR, MAR, MDR, AX, BX) y FLAGS
+├── Alu.js                   # ALU de 8 bits con cálculo de banderas ZF, CF, SF
+├── ControlUnit.js           # Decodificador de Opcodes, modos y desensamblador
+├── Cpu.js                   # FSM del ciclo de 4 fases (Fetch, Decode, Execute, Store)
+├── Logger.js                # Buffer cronológico de micro-operaciones
+├── Ui.js                    # Renderizador de matriz 16x16 y animaciones en Sheets
+├── Programs.js              # Ensamblador de programas Fibonacci y Multiplicación
+└── Main.js                  # Entrypoint, persistencia con PropertiesService y macros
 ```
+
+---
+
+## 8. Guía para la Defensa Oral (15 Minutos Estrictos)
+
+| Intervalo | Enfoque de la Defensa | Contenido a Demostrar |
+| :--- | :--- | :--- |
+| **Min 0 - 2** | Arquitectura y Hardware | Explicar la segmentación de memoria (CS: `00h-7Fh`, DS: `80h-FFh`), banco de registros y la tabla de 29 Opcodes de la ISA. |
+| **Min 2 - 4** | Metodología y Auditoría | Mostrar el tablero Kanban en GitHub Projects (5 columnas), el historial continuo de commits semánticos y el flujo local-first con `clasp`. |
+| **Min 4 - 10** | Demostración en Vivo | Ejecutar el ciclo paso a paso ($\text{Fetch} \rightarrow \text{Decode} \rightarrow \text{Execute} \rightarrow \text{Store}$), evidenciar el salto condicional `JZ` y la actualización de banderas `ZF/CF/SF`. |
+| **Min 10 - 15**| Preguntas y Modificación | Modificar un operando en vivo en la celda de memoria o insertar una instrucción `ADD AX, imm` para demostrar dominio conceptual total. |
