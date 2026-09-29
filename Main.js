@@ -34,6 +34,37 @@ function onOpen(e) {
   } catch (err) {
     console.log('onOpen finalizado. Nota: El menú visual se muestra al abrir la hoja de cálculo de Google Sheets.');
   }
+/**
+ * Evento disparador al editar la hoja: Maneja los clics en las casillas de control.
+ */
+function onEdit(e) {
+  if (!e || !e.range) return;
+
+  const sheet = e.range.getSheet();
+  if (sheet.getName() !== globalUI.SHEET_NAME) return;
+
+  const a1 = e.range.getA1Notation();
+  const val = e.value;
+
+  // Si se marcó una casilla (TRUE), ejecutar la acción correspondiente y desmarcarla
+  if (val === 'TRUE' || val === true) {
+    e.range.setValue(false); // Reset automático de la casilla
+
+    if (a1 === 'B32') {
+      btnStepPhase();
+    } else if (a1 === 'F32') {
+      btnStepInstruction();
+    } else if (a1 === 'K32') {
+      btnRunContinuous();
+    } else if (a1 === 'P32') {
+      btnReset();
+    } else if (a1 === 'B34') {
+      btnLoadFibonacci();
+    } else if (a1 === 'F34') {
+      btnLoadMultiplication();
+    } else if (a1 === 'K34') {
+      btnSetupSheet();
+    }
 }
 
 /**
@@ -106,21 +137,30 @@ function loadState() {
 // ============================================================================
 
 /**
- * Macro: Formatear y construir la interfaz gráfica en Google Sheets.
+ * Macro: Formatear y construir la interfaz gráfica completa en Google Sheets con un solo clic.
+ * Genera la cuadrícula 16x16, el panel de registros, los botones interactivos y precarga el programa de prueba.
  */
 function btnSetupSheet() {
   globalMemory.reset();
   globalRegisters.reset();
   globalCPU.reset();
   globalLogger.clear();
-  globalLogger.log('Estructura visual e inicialización completada', 'SETUP');
 
-  saveState();
+  // 1. Construir la estructura visual, colores, anchos y casillas de control
   globalUI.formatSheet();
+
+  // 2. Precargar automáticamente el programa de la Serie de Fibonacci
+  const prog = DemoPrograms.getFibonacciProgram();
+  globalMemory.loadProgram(prog, 0x00);
+  globalLogger.log('Interfaz construida y programa Fibonacci precargado en 0x00.', 'SETUP');
+
+  // 3. Persistir y renderizar el estado inicial completo
+  saveState();
+  globalUI.renderCycle(globalCPU, globalLogger);
 
   const sheet = globalUI.getSheet();
   const url = sheet.getParent().getUrl();
-  console.log('✅ Interfaz creada/actualizada exitosamente.');
+  console.log('✅ Interfaz y datos inicializados al 100%.');
   console.log('📄 Enlace directo a tu Google Sheet: ' + url);
 }
 
@@ -231,4 +271,6 @@ function btnReset() {
 
   saveState();
   globalUI.renderCycle(globalCPU, globalLogger);
+}
+}
 }

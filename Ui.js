@@ -166,6 +166,9 @@ class UIRenderer {
       .setHorizontalAlignment('center')
       .setBackground('#CBD5E1');
 
+    // Cuadrícula y Bordes de Memoria
+    sheet.getRange('I6:X21').setBorder(true, true, true, true, true, true, '#94A3B8', SpreadsheetApp.BorderStyle.SOLID);
+
     // Leyenda de Segmentación (Filas 23 y 24)
     sheet.getRange('I23:M23').merge()
       .setValue('🟦 Segmento de Código (00h - 7Fh)')
@@ -184,6 +187,51 @@ class UIRenderer {
       .setFontFamily('Consolas')
       .setFontSize(8)
       .setBackground(this.COLORS.HIGHLIGHT_FETCH);
+
+    // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 30 a 34)
+    sheet.getRange('B30:X30').merge()
+      .setValue('🎮 PANEL DE CONTROL INTERACTIVO (Marca la casilla para accionar)')
+      .setFontFamily('Consolas')
+      .setFontWeight('bold')
+      .setBackground('#0F172A')
+      .setFontColor('#38BDF8')
+      .setHorizontalAlignment('center');
+
+    // Controles de Ejecución (Fila 32)
+    sheet.getRange('B32').insertCheckboxes();
+    sheet.getRange('C32').setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold');
+
+    sheet.getRange('F32').insertCheckboxes();
+    sheet.getRange('G32').setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold');
+
+    sheet.getRange('K32').insertCheckboxes();
+    sheet.getRange('L32:N32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold');
+
+    sheet.getRange('P32').insertCheckboxes();
+    sheet.getRange('Q32:S32').merge().setValue('🔄 Reset CPU / Regs').setFontFamily('Consolas').setFontWeight('bold');
+
+    // Controles de Carga de Programas (Fila 34)
+    sheet.getRange('B34').insertCheckboxes();
+    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold');
+
+    sheet.getRange('F34').insertCheckboxes();
+    sheet.getRange('G34:I34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold');
+
+    sheet.getRange('K34').insertCheckboxes();
+    sheet.getRange('L34:N34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold');
+
+    // Ajustar anchos de columnas para simetría perfecta
+    sheet.setColumnWidth(1, 20);  // Col A (Margen)
+    sheet.setColumnWidth(2, 140); // Col B
+    sheet.setColumnWidth(3, 85);  // Col C
+    sheet.setColumnWidth(4, 90);  // Col D
+    sheet.setColumnWidth(5, 90);  // Col E
+    sheet.setColumnWidth(6, 85);  // Col F
+    sheet.setColumnWidth(7, 100); // Col G
+    sheet.setColumnWidth(8, 45);  // Col H (Fila 00_)
+    for (let c = 9; c <= 24; c++) {
+      sheet.setColumnWidth(c, 40); // Columnas I a X (Matriz 16x16)
+    }
 
     // Aplicar fondos de segmentación iniciales a la matriz 16x16
     this.renderMemoryBackgrounds(sheet, -1, -1);
