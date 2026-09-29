@@ -31,10 +31,27 @@ class UIRenderer {
 
   /**
    * Obtiene o crea la hoja dedicada para la simulación.
+   * Soporta tanto hojas vinculadas (container-bound) como scripts independientes (standalone).
    * @returns {GoogleAppsScript.Spreadsheet.Sheet}
    */
   getSheet() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let ss = null;
+    try {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    } catch (e) {
+      ss = null;
+    }
+
+    // Fallback si el script es independiente (Standalone)
+    if (!ss) {
+      const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
+      if (files.hasNext()) {
+        ss = SpreadsheetApp.open(files.next());
+      } else {
+        ss = SpreadsheetApp.create('Simulador CPU 8-Bit (von Neumann)');
+      }
+    }
+
     let sheet = ss.getSheetByName(this.SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(this.SHEET_NAME);

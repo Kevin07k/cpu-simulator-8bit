@@ -15,19 +15,25 @@ const STORAGE_KEY_RAM = 'CPU_RAM_SNAPSHOT';
 /**
  * Evento disparador al abrir la hoja de cálculo: Crea el menú superior interactivo.
  */
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('⚙️ Simulador CPU 8-Bit')
-    .addItem('🛠️ Formatear / Reiniciar Hoja (Setup)', 'btnSetupSheet')
-    .addSeparator()
-    .addItem('⏯️ Paso a Paso: Micro-fase (Step Phase)', 'btnStepPhase')
-    .addItem('⏭️ Paso a Paso: Instrucción Completa (Step Instr)', 'btnStepInstruction')
-    .addItem('▶️ Ejecutar Programa Completo (Run)', 'btnRunContinuous')
-    .addItem('🔄 Reset de CPU y Registros', 'btnReset')
-    .addSeparator()
-    .addItem('📂 Cargar Programa: Serie de Fibonacci', 'btnLoadFibonacci')
-    .addItem('📂 Cargar Programa: Multiplicación Aritmética', 'btnLoadMultiplication')
-    .addToUi();
+function onOpen(e) {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    if (ui) {
+      ui.createMenu('⚙️ Simulador CPU 8-Bit')
+        .addItem('🛠️ Formatear / Reiniciar Hoja (Setup)', 'btnSetupSheet')
+        .addSeparator()
+        .addItem('⏯️ Paso a Paso: Micro-fase (Step Phase)', 'btnStepPhase')
+        .addItem('⏭️ Paso a Paso: Instrucción Completa (Step Instr)', 'btnStepInstruction')
+        .addItem('▶️ Ejecutar Programa Completo (Run)', 'btnRunContinuous')
+        .addItem('🔄 Reset de CPU y Registros', 'btnReset')
+        .addSeparator()
+        .addItem('📂 Cargar Programa: Serie de Fibonacci', 'btnLoadFibonacci')
+        .addItem('📂 Cargar Programa: Multiplicación Aritmética', 'btnLoadMultiplication')
+        .addToUi();
+    }
+  } catch (err) {
+    console.log('onOpen finalizado. Nota: El menú visual se muestra al abrir la hoja de cálculo de Google Sheets.');
+  }
 }
 
 /**
@@ -111,6 +117,11 @@ function btnSetupSheet() {
 
   saveState();
   globalUI.formatSheet();
+
+  const sheet = globalUI.getSheet();
+  const url = sheet.getParent().getUrl();
+  console.log('✅ Interfaz creada/actualizada exitosamente.');
+  console.log('📄 Enlace directo a tu Google Sheet: ' + url);
 }
 
 /**
