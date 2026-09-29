@@ -45,7 +45,7 @@ class CPU {
     this.currentInstruction = null;
     this.operandByte = null;
     this.executionResult = null;
-    this.storeTarget = null; // { type: 'REG' | 'MEM', dest: 'AX' | 'BX' | number, value: number }
+    this.storeTarget = null; // { type: 'REG' | 'MEM' | 'BRANCH', dest: 'AX' | 'BX' | number, value: number }
     this.lastMicroOpLog = 'CPU Inicializado. Listo para ejecutar.';
     this.activeHighlight = { type: 'NONE', target: null };
   }
@@ -98,7 +98,6 @@ class CPU {
   stepInstruction() {
     if (this.isHalted) return this.getState();
 
-    // Ejecuta hasta completar la fase STORE o entrar en HALT
     const startCount = this.instructionCount;
     let safetyGuard = 0;
     while (this.instructionCount === startCount && !this.isHalted && safetyGuard < 10) {
@@ -117,14 +116,10 @@ class CPU {
    * @private
    */
   _phaseFetch() {
-    // Transferencia de bus de dirección
     this.registers.MAR = this.registers.PC;
     const fetchAddress = this.registers.MAR;
 
-    // Lectura de la memoria principal hacia el bus de datos
     this.registers.MDR = this.memory.Read(this.registers.MAR);
-
-    // Carga en el registro de instrucción y avance del PC
     this.registers.IR = this.registers.MDR;
     this.registers.incrementPC();
 
@@ -142,7 +137,7 @@ class CPU {
     this.storeTarget = null;
     this.executionResult = null;
 
-    // Si la instrucción requiere un segundo byte (inmediato o dirección directa)
+    // Si la instrucción requiere un segundo byte de operando/dirección
     if (this.currentInstruction.bytes === 2) {
       this.registers.MAR = this.registers.PC;
       this.registers.MDR = this.memory.Read(this.registers.MAR);
@@ -156,7 +151,7 @@ class CPU {
   }
 
   /**
-   * 3. FASE EXECUTE: Procesamiento en ALU o Cálculo de Bifurcaciones
+   * 3. FASE EXECUTE: Procesamiento en ALU o Evaluación de Bifurcaciones
    * @private
    */
   _phaseExecute() {
@@ -169,11 +164,11 @@ class CPU {
     switch (op) {
       // --- NOP & HLT ---
       case 0x00: // NOP
-        actionDetail = 'NOP: Ninguna operación';
+        actionDetail = 'NOP: Ninguna operación efectuada';
         break;
       case 0xFF: // HLT
         this.isHalted = true;
-        actionDetail = 'HLT: Procesador detenido (Clock halted)';
+        actionDetail = 'HLT: Reloj del procesador detenido (Halt)';
         this.activeHighlight = { type: 'HALT', target: null };
         break;
 
@@ -312,22 +307,22 @@ class CPU {
       case 0x31: // JZ dir
         if (this.registers.ZF === 1) {
           this.registers.PC = immOrDir;
-          actionDetail = `JZ: Salto tomado (ZF=1) -> PC=0x${Memory.toHex8(immOrDir)}`;
+          actionDetail = `JZ: Salto ejecutado (ZF=1) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
         } else {
-          actionDetail = `JZ: Salto no tomado (ZF=0) -> Continúa`;
+          actionDetail = `JZ: Salto ignorado (ZF=0) ➔ Continúa a PC=0x${Memory.toHex8(this.registers.PC)}`;
         }
         break;
       case 0x32: // JNZ dir
         if (this.registers.ZF === 0) {
           this.registers.PC = immOrDir;
-          actionDetail = `JNZ: Salto tomado (ZF=0) -> PC=0x${Memory.toHex8(immOrDir)}`;
+          actionDetail = `JNZ: Salto ejecutado (ZF=0) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
         } else {
-          actionDetail = `JNZ: Salto no tomado (ZF=1) -> Continúa`;
+          actionDetail = `JNZ: Salto ignorado (ZF=1) ➔ Continúa a PC=0x${Memory.toHex8(this.registers.PC)}`;
         }
         break;
 
       default:
-        actionDetail = `Instrucción no implementada (0x${Memory.toHex8(op)})`;
+        actionDetail = `Opcode no reconocido (0x${Memory.toHex8(op)})`;
     }
 
     this.activeHighlight = { type: 'ALU', target: op };
@@ -340,7 +335,7 @@ class CPU {
    */
   _phaseStore() {
     if (!this.storeTarget) {
-      this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: No requiere almacenamiento adicional`;
+      this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: Operación finalizada sin almacenamiento en destino`;
       this.activeHighlight = { type: 'NONE', target: null };
       return;
     }
