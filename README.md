@@ -196,14 +196,3 @@ stateDiagram-v2
 ├── Programs.js              # Ensamblador de programas Fibonacci y Multiplicación
 └── Main.js                  # Entrypoint, persistencia con PropertiesService y macros
 ```
-
----
-
-## 8. Guía para la Defensa Oral (15 Minutos Estrictos)
-
-| Intervalo | Enfoque de la Defensa | Contenido a Demostrar |
-| :--- | :--- | :--- |
-| **Min 0 - 2** | Arquitectura y Hardware | Explicar la segmentación de memoria (CS: `00h-7Fh`, DS: `80h-FFh`), banco de registros y la tabla de 29 Opcodes de la ISA. |
-| **Min 2 - 4** | Metodología y Auditoría | Mostrar el tablero Kanban en GitHub Projects (5 columnas), el historial continuo de commits semánticos y el flujo local-first con `clasp`. |
-| **Min 4 - 10** | Demostración en Vivo | Ejecutar el ciclo paso a paso ($\text{Fetch} \rightarrow \text{Decode} \rightarrow \text{Execute} \rightarrow \text{Store}$), evidenciar el salto condicional `JZ` y la actualización de banderas `ZF/CF/SF`. |
-| **Min 10 - 15**| Preguntas y Modificación | Modificar un operando en vivo en la celda de memoria o insertar una instrucción `ADD AX, imm` para demostrar dominio conceptual total. |
