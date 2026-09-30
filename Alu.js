@@ -163,5 +163,11 @@ class ALU {
   }
 }
 
-// Instancia global de ALU vinculada a los registros globales
-var globalALU = new ALU(globalRegisters);
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalALU = null;
+function getALU() {
+  if (!globalALU) {
+    globalALU = new ALU(getRegisters());
+  }
+  return globalALU;
+}

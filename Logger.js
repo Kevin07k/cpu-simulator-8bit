@@ -59,5 +59,11 @@ class Logger {
   }
 }
 
-// Instancia global del Logger
-var globalLogger = new Logger(25);
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalLogger = null;
+function getLogger() {
+  if (!globalLogger) {
+    globalLogger = new Logger(25);
+  }
+  return globalLogger;
+}

@@ -18,16 +18,16 @@ const CPU_PHASES = {
 
 class CPU {
   /**
-   * @param {Memory} memory
-   * @param {Registers} registers
-   * @param {ALU} alu
-   * @param {ControlUnit} controlUnit
+   * @param {Memory} [memory]
+   * @param {Registers} [registers]
+   * @param {ALU} [alu]
+   * @param {ControlUnit} [controlUnit]
    */
   constructor(memory, registers, alu, controlUnit) {
-    this.memory = memory;
-    this.registers = registers;
-    this.alu = alu;
-    this.controlUnit = controlUnit;
+    this.memory = memory || getMemory();
+    this.registers = registers || getRegisters();
+    this.alu = alu || getALU();
+    this.controlUnit = controlUnit || getControlUnit();
 
     this.reset();
   }
@@ -116,6 +116,7 @@ class CPU {
    * @private
    */
   _phaseFetch() {
+    this.storeTarget = null;
     this.registers.MAR = this.registers.PC;
     const fetchAddress = this.registers.MAR;
 
@@ -351,12 +352,15 @@ class CPU {
       this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: Registro ${this.storeTarget.dest} 🠄 0x${Memory.toHex8(this.storeTarget.value)}`;
     } else if (this.storeTarget.type === 'MEM') {
       const targetAddr = this.storeTarget.dest;
-      this.registers.MAR = targetAddr;
-      this.registers.MDR = this.storeTarget.value;
-      this.memory.Write(this.registers.MAR, this.registers.MDR);
-      this.activeHighlight = { type: 'MEM_WRITE', target: targetAddr };
-      this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: MDR(0x${Memory.toHex8(this.registers.MDR)}) ➔ RAM[0x${Memory.toHex8(targetAddr)}]`;
+      if (typeof targetAddr === 'number' && targetAddr >= 0 && targetAddr < 256) {
+        this.registers.MAR = targetAddr;
+        this.registers.MDR = this.storeTarget.value;
+        this.memory.Write(this.registers.MAR, this.registers.MDR);
+        this.activeHighlight = { type: 'MEM_WRITE', target: targetAddr };
+        this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: MDR(0x${Memory.toHex8(this.registers.MDR)}) ➔ RAM[0x${Memory.toHex8(targetAddr)}]`;
+      }
     }
+    this.storeTarget = null; // Limpiar para que no persista en ciclos posteriores
   }
 
   /**
@@ -376,5 +380,11 @@ class CPU {
   }
 }
 
-// Instancia global de CPU
-var globalCPU = new CPU(globalMemory, globalRegisters, globalALU, globalControlUnit);
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalCPU = null;
+function getCPU() {
+  if (!globalCPU) {
+    globalCPU = new CPU(getMemory(), getRegisters(), getALU(), getControlUnit());
+  }
+  return globalCPU;
+}

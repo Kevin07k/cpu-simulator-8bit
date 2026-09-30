@@ -30,8 +30,8 @@ class UIRenderer {
   }
 
   /**
-   * Obtiene o crea la hoja dedicada para la simulación.
-   * Soporta tanto hojas vinculadas (container-bound) como scripts independientes (standalone).
+   * Obtiene o crea la hoja activa para la simulación.
+   * Pinta directamente en la pestaña activa visible del usuario.
    * @returns {GoogleAppsScript.Spreadsheet.Sheet}
    */
   getSheet() {
@@ -42,7 +42,6 @@ class UIRenderer {
       ss = null;
     }
 
-    // Fallback si el script es independiente (Standalone)
     if (!ss) {
       const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
       if (files.hasNext()) {
@@ -52,10 +51,18 @@ class UIRenderer {
       }
     }
 
-    let sheet = ss.getSheetByName(this.SHEET_NAME);
+    // Utiliza la pestaña actualmente activa/visible para que el usuario vea el dibujo de inmediato
+    let sheet = ss.getActiveSheet();
     if (!sheet) {
-      sheet = ss.insertSheet(this.SHEET_NAME);
+      sheet = ss.getSheets()[0];
     }
+    
+    try {
+      sheet.setName(this.SHEET_NAME);
+    } catch (e) {
+      // Si ya existe otra pestaña con ese nombre, continuar en la actual
+    }
+
     return sheet;
   }
 
@@ -64,8 +71,9 @@ class UIRenderer {
    */
   formatSheet() {
     const sheet = this.getSheet();
+    sheet.activate(); // Enfocar y cambiar automáticamente a la pestaña del simulador
     sheet.clear();
-    sheet.setGridlines(true);
+    sheet.setHiddenGridlines(false);
 
     // 1. TÍTULO Y BANNER SUPERIOR (Filas 1 y 2)
     sheet.getRange('B1:X1').merge()
@@ -235,7 +243,7 @@ class UIRenderer {
 
     // Aplicar fondos de segmentación iniciales a la matriz 16x16
     this.renderMemoryBackgrounds(sheet, -1, -1);
-    this.updateMemoryMatrix(sheet, globalMemory);
+    this.updateMemoryMatrix(sheet, getMemory());
 
     SpreadsheetApp.flush();
   }
@@ -272,7 +280,8 @@ class UIRenderer {
    * @param {Memory} memory
    */
   updateMemoryMatrix(sheet, memory) {
-    const matrixHex = memory.dumpMatrixHex();
+    const mem = memory || getMemory();
+    const matrixHex = mem.dumpMatrixHex();
     sheet.getRange('I6:X21').setValues(matrixHex)
       .setFontFamily('Consolas')
       .setFontSize(9)
@@ -285,12 +294,13 @@ class UIRenderer {
    * @param {CPU} cpu
    */
   updateRegistersAndState(sheet, cpu) {
-    const snap = cpu.registers.getSnapshot();
-    const cu = cpu.controlUnit;
+    const proc = cpu || getCPU();
+    const snap = proc.registers.getSnapshot();
+    const cu = proc.controlUnit;
 
     const values = [
-      [`0x${snap.PC.hex}`,  snap.PC.bin,  snap.PC.dec.toString(),  cpu.currentPhase, `RAM[0x${snap.PC.hex}]`],
-      [`0x${snap.IR.hex}`,  snap.IR.bin,  snap.IR.dec.toString(),  cu.decode(cpu.registers.IR).mnemonic, cu.disassemble(cpu.registers.IR, cpu.operandByte)],
+      [`0x${snap.PC.hex}`,  snap.PC.bin,  snap.PC.dec.toString(),  proc.currentPhase, `RAM[0x${snap.PC.hex}]`],
+      [`0x${snap.IR.hex}`,  snap.IR.bin,  snap.IR.dec.toString(),  cu.decode(proc.registers.IR).mnemonic, cu.disassemble(proc.registers.IR, proc.operandByte)],
       [`0x${snap.MAR.hex}`, snap.MAR.bin, snap.MAR.dec.toString(), 'ACTIVE', `Dir=0x${snap.MAR.hex}`],
       [`0x${snap.MDR.hex}`, snap.MDR.bin, snap.MDR.dec.toString(), 'ACTIVE', `Dato=0x${snap.MDR.hex}`],
       [`0x${snap.AX.hex}`,  snap.AX.bin,  `${snap.AX.dec} (${snap.AX.signed})`, 'ACTIVE', 'Acumulador'],
@@ -300,7 +310,7 @@ class UIRenderer {
     sheet.getRange('C6:G11').setValues(values);
 
     // Actualizar Banderas
-    const flagsText = `BANDERAS: ZF = ${snap.FLAGS.ZF}  |  CF = ${snap.FLAGS.CF}  |  SF = ${snap.FLAGS.SF}   [Ciclos: ${cpu.cycleCount} | Instrucciones: ${cpu.instructionCount}]`;
+    const flagsText = `BANDERAS: ZF = ${snap.FLAGS.ZF}  |  CF = ${snap.FLAGS.CF}  |  SF = ${snap.FLAGS.SF}   [Ciclos: ${proc.cycleCount} | Instrucciones: ${proc.instructionCount}]`;
     sheet.getRange('B12:G12').setValue(flagsText);
   }
 
@@ -310,7 +320,8 @@ class UIRenderer {
    * @param {Logger} logger
    */
   updateLogs(sheet, logger) {
-    const entries = logger.dumpForSheet(13);
+    const log = logger || getLogger();
+    const entries = log.dumpForSheet(13);
     const tableData = entries.map(item => [item[0], item[1], item[2]]);
     
     // Asignar en bloque
@@ -324,35 +335,43 @@ class UIRenderer {
 
   /**
    * Renderizado integral de un ciclo de reloj con animación y resaltado.
-   * @param {CPU} cpu
-   * @param {Logger} logger
+   * @param {CPU} [cpu]
+   * @param {Logger} [logger]
    */
   renderCycle(cpu, logger) {
     const sheet = this.getSheet();
+    const proc = cpu || getCPU();
+    const log = logger || getLogger();
 
     // 1. Matriz de memoria y celdas activas
     let activeAddr = -1;
     let highlightColor = this.COLORS.HIGHLIGHT_FETCH;
 
-    if (cpu.activeHighlight.type === 'MEM_FETCH') {
-      activeAddr = cpu.activeHighlight.target;
+    if (proc.activeHighlight && proc.activeHighlight.type === 'MEM_FETCH') {
+      activeAddr = proc.activeHighlight.target;
       highlightColor = this.COLORS.HIGHLIGHT_FETCH;
-    } else if (cpu.activeHighlight.type === 'MEM_WRITE') {
-      activeAddr = cpu.activeHighlight.target;
+    } else if (proc.activeHighlight && proc.activeHighlight.type === 'MEM_WRITE') {
+      activeAddr = proc.activeHighlight.target;
       highlightColor = this.COLORS.HIGHLIGHT_WRITE;
-    } else {
-      activeAddr = cpu.registers.PC;
+    } else if (proc.registers) {
+      activeAddr = proc.registers.PC;
       highlightColor = this.COLORS.HIGHLIGHT_PC;
     }
 
     this.renderMemoryBackgrounds(sheet, activeAddr, highlightColor);
-    this.updateMemoryMatrix(sheet, cpu.memory);
-    this.updateRegistersAndState(sheet, cpu);
-    this.updateLogs(sheet, logger);
+    this.updateMemoryMatrix(sheet, proc.memory);
+    this.updateRegistersAndState(sheet, proc);
+    this.updateLogs(sheet, log);
 
     SpreadsheetApp.flush();
   }
 }
 
-// Instancia global del renderizador UI
-var globalUI = new UIRenderer();
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalUI = null;
+function getUI() {
+  if (!globalUI) {
+    globalUI = new UIRenderer();
+  }
+  return globalUI;
+}

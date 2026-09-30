@@ -31,15 +31,14 @@ class Memory {
   }
 
   /**
-   * Valida y normaliza una dirección de 8 bits (0x00 - 0xFF) con wrap-around de hardware.
+   * Valida y normaliza una dirección de 8 bits (0x00 - 0xFF).
    * @param {number} address Dirección de memoria
-   * @returns {number} Dirección acotada al rango 0-255
+   * @returns {number} Dirección acotada al rango 0-255 o -1 si es inválida
    */
   normalizeAddress(address) {
-    if (address === null || address === undefined || isNaN(address)) {
-      return 0x00;
+    if (address === null || address === undefined || typeof address !== 'number' || isNaN(address)) {
+      return -1;
     }
-    // Aritmética modular de bus de direcciones de 8 bits
     return Math.floor(address) & 0xFF;
   }
 
@@ -51,6 +50,7 @@ class Memory {
    */
   Read(address) {
     const addr = this.normalizeAddress(address);
+    if (addr < 0 || addr >= this.SIZE) return 0x00;
     return this.bytes[addr] & 0xFF;
   }
 
@@ -62,6 +62,7 @@ class Memory {
    */
   Write(address, value) {
     const addr = this.normalizeAddress(address);
+    if (addr < 0 || addr >= this.SIZE) return; // Evita sobrescribir 0x00 si address es inválido
     const val = (typeof value === 'number' && !isNaN(value)) ? Math.floor(value) & 0xFF : 0x00;
     this.bytes[addr] = val;
   }
@@ -162,5 +163,11 @@ class Memory {
   }
 }
 
-// Instancia global de memoria para el entorno Google Apps Script
-var globalMemory = new Memory();
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalMemory = null;
+function getMemory() {
+  if (!globalMemory) {
+    globalMemory = new Memory();
+  }
+  return globalMemory;
+}

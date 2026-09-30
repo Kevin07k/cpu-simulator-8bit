@@ -13,6 +13,13 @@ const STORAGE_KEY_STATE = 'CPU_STATE_SNAPSHOT';
 const STORAGE_KEY_RAM = 'CPU_RAM_SNAPSHOT';
 
 /**
+ * Función Principal (main): Ejecuta la construcción completa del simulador.
+ */
+function main() {
+  btnSetupSheet();
+}
+
+/**
  * Evento disparador al abrir la hoja de cálculo: Crea el menú superior interactivo.
  */
 function onOpen(e) {
@@ -34,6 +41,8 @@ function onOpen(e) {
   } catch (err) {
     console.log('onOpen finalizado. Nota: El menú visual se muestra al abrir la hoja de cálculo de Google Sheets.');
   }
+}
+
 /**
  * Evento disparador al editar la hoja: Maneja los clics en las casillas de control.
  */
@@ -65,40 +74,49 @@ function onEdit(e) {
     } else if (a1 === 'K34') {
       btnSetupSheet();
     }
+  }
 }
 
 /**
  * Guarda el estado actual del CPU y la RAM en las propiedades del script.
  */
 function saveState() {
+  const reg = getRegisters();
+  const mem = getMemory();
+  const cpu = getCPU();
+
   const props = PropertiesService.getScriptProperties();
   const stateObj = {
-    pc: globalRegisters.PC,
-    ir: globalRegisters.IR,
-    mar: globalRegisters.MAR,
-    mdr: globalRegisters.MDR,
-    ax: globalRegisters.AX,
-    bx: globalRegisters.BX,
-    zf: globalRegisters.ZF,
-    cf: globalRegisters.CF,
-    sf: globalRegisters.SF,
-    phase: globalCPU.currentPhase,
-    isHalted: globalCPU.isHalted,
-    cycleCount: globalCPU.cycleCount,
-    instructionCount: globalCPU.instructionCount,
-    currentInstruction: globalCPU.currentInstruction,
-    operandByte: globalCPU.operandByte,
-    storeTarget: globalCPU.storeTarget
+    pc: reg.PC,
+    ir: reg.IR,
+    mar: reg.MAR,
+    mdr: reg.MDR,
+    ax: reg.AX,
+    bx: reg.BX,
+    zf: reg.ZF,
+    cf: reg.CF,
+    sf: reg.SF,
+    phase: cpu.currentPhase,
+    isHalted: cpu.isHalted,
+    cycleCount: cpu.cycleCount,
+    instructionCount: cpu.instructionCount,
+    currentInstruction: cpu.currentInstruction,
+    operandByte: cpu.operandByte,
+    storeTarget: cpu.storeTarget
   };
 
   props.setProperty(STORAGE_KEY_STATE, JSON.stringify(stateObj));
-  props.setProperty(STORAGE_KEY_RAM, JSON.stringify(Array.from(globalMemory.bytes)));
+  props.setProperty(STORAGE_KEY_RAM, JSON.stringify(Array.from(mem.bytes)));
 }
 
 /**
  * Restaura el estado del CPU y la RAM desde las propiedades del script.
  */
 function loadState() {
+  const reg = getRegisters();
+  const mem = getMemory();
+  const cpu = getCPU();
+
   const props = PropertiesService.getScriptProperties();
   const stateStr = props.getProperty(STORAGE_KEY_STATE);
   const ramStr = props.getProperty(STORAGE_KEY_RAM);
@@ -106,29 +124,29 @@ function loadState() {
   if (ramStr) {
     const rawArr = JSON.parse(ramStr);
     for (let i = 0; i < rawArr.length; i++) {
-      globalMemory.bytes[i] = rawArr[i];
+      mem.bytes[i] = rawArr[i];
     }
   }
 
   if (stateStr) {
     const s = JSON.parse(stateStr);
-    globalRegisters.PC = s.pc;
-    globalRegisters.IR = s.ir;
-    globalRegisters.MAR = s.mar;
-    globalRegisters.MDR = s.mdr;
-    globalRegisters.AX = s.ax;
-    globalRegisters.BX = s.bx;
-    globalRegisters.ZF = s.zf;
-    globalRegisters.CF = s.cf;
-    globalRegisters.SF = s.sf;
+    reg.PC = s.pc;
+    reg.IR = s.ir;
+    reg.MAR = s.mar;
+    reg.MDR = s.mdr;
+    reg.AX = s.ax;
+    reg.BX = s.bx;
+    reg.ZF = s.zf;
+    reg.CF = s.cf;
+    reg.SF = s.sf;
 
-    globalCPU.currentPhase = s.phase || CPU_PHASES.FETCH;
-    globalCPU.isHalted = s.isHalted || false;
-    globalCPU.cycleCount = s.cycleCount || 0;
-    globalCPU.instructionCount = s.instructionCount || 0;
-    globalCPU.currentInstruction = s.currentInstruction || null;
-    globalCPU.operandByte = s.operandByte !== undefined ? s.operandByte : null;
-    globalCPU.storeTarget = s.storeTarget || null;
+    cpu.currentPhase = s.phase || CPU_PHASES.FETCH;
+    cpu.isHalted = s.isHalted || false;
+    cpu.cycleCount = s.cycleCount || 0;
+    cpu.instructionCount = s.instructionCount || 0;
+    cpu.currentInstruction = s.currentInstruction || null;
+    cpu.operandByte = s.operandByte !== undefined ? s.operandByte : null;
+    cpu.storeTarget = s.storeTarget || null;
   }
 }
 
@@ -141,24 +159,30 @@ function loadState() {
  * Genera la cuadrícula 16x16, el panel de registros, los botones interactivos y precarga el programa de prueba.
  */
 function btnSetupSheet() {
-  globalMemory.reset();
-  globalRegisters.reset();
-  globalCPU.reset();
-  globalLogger.clear();
+  const mem = getMemory();
+  const reg = getRegisters();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
+
+  mem.reset();
+  reg.reset();
+  cpu.reset();
+  log.clear();
 
   // 1. Construir la estructura visual, colores, anchos y casillas de control
-  globalUI.formatSheet();
+  ui.formatSheet();
 
   // 2. Precargar automáticamente el programa de la Serie de Fibonacci
   const prog = DemoPrograms.getFibonacciProgram();
-  globalMemory.loadProgram(prog, 0x00);
-  globalLogger.log('Interfaz construida y programa Fibonacci precargado en 0x00.', 'SETUP');
+  mem.loadProgram(prog, 0x00);
+  log.log('Interfaz construida y programa Fibonacci precargado en 0x00.', 'SETUP');
 
   // 3. Persistir y renderizar el estado inicial completo
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 
-  const sheet = globalUI.getSheet();
+  const sheet = ui.getSheet();
   const url = sheet.getParent().getUrl();
   console.log('✅ Interfaz y datos inicializados al 100%.');
   console.log('📄 Enlace directo a tu Google Sheet: ' + url);
@@ -168,34 +192,46 @@ function btnSetupSheet() {
  * Macro: Cargar en memoria el programa de la Serie de Fibonacci.
  */
 function btnLoadFibonacci() {
-  globalMemory.reset();
-  globalRegisters.reset();
-  globalCPU.reset();
-  globalLogger.clear();
+  const mem = getMemory();
+  const reg = getRegisters();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
+
+  mem.reset();
+  reg.reset();
+  cpu.reset();
+  log.clear();
 
   const prog = DemoPrograms.getFibonacciProgram();
-  globalMemory.loadProgram(prog, 0x00);
-  globalLogger.log(`Programa Fibonacci cargado (${prog.length} bytes en 0x00)`, 'LOAD');
+  mem.loadProgram(prog, 0x00);
+  log.log(`Programa Fibonacci cargado (${prog.length} bytes en 0x00)`, 'LOAD');
 
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 }
 
 /**
  * Macro: Cargar en memoria el programa de Multiplicación por sumas sucesivas.
  */
 function btnLoadMultiplication() {
-  globalMemory.reset();
-  globalRegisters.reset();
-  globalCPU.reset();
-  globalLogger.clear();
+  const mem = getMemory();
+  const reg = getRegisters();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
+
+  mem.reset();
+  reg.reset();
+  cpu.reset();
+  log.clear();
 
   const prog = DemoPrograms.getMultiplicationProgram();
-  globalMemory.loadProgram(prog, 0x00);
-  globalLogger.log(`Programa Multiplicación cargado (${prog.length} bytes en 0x00)`, 'LOAD');
+  mem.loadProgram(prog, 0x00);
+  log.log(`Programa Multiplicación cargado (${prog.length} bytes en 0x00)`, 'LOAD');
 
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 }
 
 /**
@@ -203,17 +239,20 @@ function btnLoadMultiplication() {
  */
 function btnStepPhase() {
   loadState();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
 
-  if (globalCPU.isHalted) {
-    SpreadsheetApp.getUi().alert('Aviso del Simulador', 'El CPU está detenido (HLT). Presione RESET para reiniciar.', SpreadsheetApp.getUi().ButtonSet.OK);
+  if (cpu.isHalted) {
+    console.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.');
     return;
   }
 
-  const state = globalCPU.stepPhase();
-  globalLogger.log(state.lastLog, state.phase);
+  const state = cpu.stepPhase();
+  log.log(state.lastLog, state.phase);
 
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 }
 
 /**
@@ -221,17 +260,20 @@ function btnStepPhase() {
  */
 function btnStepInstruction() {
   loadState();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
 
-  if (globalCPU.isHalted) {
-    SpreadsheetApp.getUi().alert('Aviso del Simulador', 'El CPU está detenido (HLT). Presione RESET para reiniciar.', SpreadsheetApp.getUi().ButtonSet.OK);
+  if (cpu.isHalted) {
+    console.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.');
     return;
   }
 
-  const state = globalCPU.stepInstruction();
-  globalLogger.log(state.lastLog, 'STORE');
+  const state = cpu.stepInstruction();
+  log.log(state.lastLog, 'STORE');
 
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 }
 
 /**
@@ -239,23 +281,26 @@ function btnStepInstruction() {
  */
 function btnRunContinuous() {
   loadState();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
 
-  if (globalCPU.isHalted) {
-    SpreadsheetApp.getUi().alert('Aviso del Simulador', 'El CPU está detenido (HLT). Presione RESET antes de ejecutar.', SpreadsheetApp.getUi().ButtonSet.OK);
+  if (cpu.isHalted) {
+    console.log('Aviso: El CPU está detenido (HLT). Presione RESET antes de ejecutar.');
     return;
   }
 
   const MAX_CYCLES = 350; // Guardia de seguridad contra bucles infinitos
   let cycles = 0;
 
-  while (!globalCPU.isHalted && cycles < MAX_CYCLES) {
-    globalCPU.stepPhase();
+  while (!cpu.isHalted && cycles < MAX_CYCLES) {
+    cpu.stepPhase();
     cycles++;
   }
 
-  globalLogger.log(`Ejecución continua finalizada (${cycles} ciclos procesados)`, 'RUN');
+  log.log(`Ejecución continua finalizada (${cycles} ciclos procesados)`, 'RUN');
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
+  ui.renderCycle(cpu, log);
 }
 
 /**
@@ -263,14 +308,16 @@ function btnRunContinuous() {
  */
 function btnReset() {
   loadState();
+  const reg = getRegisters();
+  const cpu = getCPU();
+  const log = getLogger();
+  const ui = getUI();
 
-  globalRegisters.reset();
-  globalCPU.reset();
-  globalLogger.clear();
-  globalLogger.log('Registros y CPU restablecidos a 0x00. Memoria preservada.', 'RESET');
+  reg.reset();
+  cpu.reset();
+  log.clear();
+  log.log('Registros y CPU restablecidos a 0x00. Memoria preservada.', 'RESET');
 
   saveState();
-  globalUI.renderCycle(globalCPU, globalLogger);
-}
-}
+  ui.renderCycle(cpu, log);
 }

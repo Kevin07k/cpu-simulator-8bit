@@ -98,5 +98,11 @@ class Registers {
   }
 }
 
-// Instancia global de registros para el motor
-var globalRegisters = new Registers();
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalRegisters = null;
+function getRegisters() {
+  if (!globalRegisters) {
+    globalRegisters = new Registers();
+  }
+  return globalRegisters;
+}

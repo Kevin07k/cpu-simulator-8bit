@@ -126,5 +126,11 @@ class ControlUnit {
   }
 }
 
-// Instancia global de la Unidad de Control
-var globalControlUnit = new ControlUnit();
+// Instancia global y getter diferido para evitar problemas de orden de carga en GAS
+var globalControlUnit = null;
+function getControlUnit() {
+  if (!globalControlUnit) {
+    globalControlUnit = new ControlUnit();
+  }
+  return globalControlUnit;
+}
