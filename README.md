@@ -26,46 +26,46 @@ El diseño de software sigue estrictamente el principio de responsabilidad únic
 El siguiente esquema modela las interconexiones entre los componentes del procesador y la memoria:
 
 ```mermaid
-graph TD
+flowchart TD
     subgraph Memoria_Principal ["Memoria Principal RAM (256 Bytes: 00h - FFh)"]
-        RAM["RAM Matrix 16x16<br/>Segmento Código (CS): 00h - 7Fh (128 Bytes)<br/>Segmento Datos (DS): 80h - FFh (128 Bytes)"]
+        RAM["RAM Matrix 16x16<br/>Segmento Código CS: 00h - 7Fh<br/>Segmento Datos DS: 80h - FFh"]
     end
 
     subgraph CPU ["Unidad Central de Procesamiento (CPU de 8 bits)"]
         subgraph Bus_Interface ["Interfaz de Bus y Registros de Enlace"]
-            MAR["MAR (Memory Address Register)<br/>8 bits | Líneas de Dirección"]
-            MDR["MDR / MBR (Memory Data Register)<br/>8 bits | Líneas de Datos"]
+            MAR["MAR (Memory Address Register)<br/>8 bits - Líneas de Dirección"]
+            MDR["MDR / MBR (Memory Data Register)<br/>8 bits - Líneas de Datos"]
         end
 
         subgraph Banco_Registros ["Banco de Registros Internos"]
-            PC["PC (Program Counter)<br/>8 bits | Puntero de Instrucción"]
-            IR["IR (Instruction Register)<br/>8 bits | Registro de Instrucción"]
-            AX["AX / AC (Acumulador)<br/>8 bits | Cómputo Principal"]
-            BX["BX (Registro Auxiliar)<br/>8 bits | Propósito General"]
+            PC["PC (Program Counter)<br/>8 bits - Puntero de Instrucción"]
+            IR["IR (Instruction Register)<br/>8 bits - Registro de Instrucción"]
+            AX["AX / AC (Acumulador)<br/>8 bits - Cómputo Principal"]
+            BX["BX (Registro Auxiliar)<br/>8 bits - Propósito General"]
             FLAGS["FLAGS (Registro de Estado)<br/>ZF (Zero) | CF (Carry) | SF (Sign)"]
         end
 
         subgraph Procesamiento ["Unidad de Control & ALU"]
-            CU["Unidad de Control (FSM)<br/>Fetch ➔ Decode ➔ Execute ➔ Store"]
+            CU["Unidad de Control (FSM)<br/>Fetch -> Decode -> Execute -> Store"]
             ALU["ALU (Unidad Aritmético-Lógica)<br/>ADD, SUB, INC, DEC, CMP, AND, OR, XOR, NOT"]
         end
     end
 
     %% Flujos de Direcciones y Datos
-    PC -->|Puntero| MAR
-    MAR -->|Address Bus 8-bit| RAM
-    RAM <-->|Data Bus 8-bit (Read/Write)| MDR
-    MDR -->|Opcode / Operando| IR
-    IR -->|Instrucción| CU
+    PC --> MAR
+    MAR --> RAM
+    RAM <--> MDR
+    MDR --> IR
+    IR --> CU
     
     %% Conexiones ALU y Registros
-    CU -->|Señales de Control| ALU
-    CU -->|Enable Signals| Banco_Registros
-    AX <-->|Operando 1 / Destino| ALU
-    BX -->|Operando 2| ALU
-    MDR -->|Operando Inmediato/Memoria| ALU
-    ALU -->|Actualización de Banderas| FLAGS
-    FLAGS -->|Bifurcación Condicional| CU
+    CU --> ALU
+    CU --> Banco_Registros
+    AX <--> ALU
+    BX --> ALU
+    MDR --> ALU
+    ALU --> FLAGS
+    FLAGS --> CU
 ```
 
 ---
