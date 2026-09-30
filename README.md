@@ -7,6 +7,11 @@
 **Estudiante:** Kevin (Kevin07k)  
 **Fecha de Entrega:** 29 de Septiembre de 2026  
 
+### 🔗 Enlaces Oficiales de Entrega y Demostración:
+* 📊 **Google Sheets en Vivo:** [Simulador de CPU 8-Bit (Google Sheets)](https://docs.google.com/spreadsheets/d/10u1dmvRX6E_P6hqdyTS1fKy6tb16Stp_gRZjt0V2NN0/edit?usp=sharing)
+* 🐙 **Repositorio de GitHub:** [https://github.com/Kevin07k/cpu-simulator-8bit](https://github.com/Kevin07k/cpu-simulator-8bit)
+* 📋 **Tablero Kanban (GitHub Projects):** [Gestión Ágil y Criterios de Aceptación](https://github.com/users/Kevin07k/projects)
+
 ---
 
 ## 1. Contexto Académico y Proyección Formativa

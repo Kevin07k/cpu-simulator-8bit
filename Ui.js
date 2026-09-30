@@ -43,13 +43,13 @@ class UIRenderer {
     }
 
     if (!ss) {
-      const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
-      if (files.hasNext()) {
-        ss = SpreadsheetApp.open(files.next());
-      } else {
-        ss = SpreadsheetApp.create('Simulador CPU 8-Bit (von Neumann)');
+        const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
+        if (files.hasNext()) {
+          ss = SpreadsheetApp.open(files.next());
+        } else {
+          ss = SpreadsheetApp.create('Simulador CPU 8-Bit (von Neumann)');
+        }
       }
-    }
 
     // Utiliza la pestaña actualmente activa/visible para que el usuario vea el dibujo de inmediato
     let sheet = ss.getActiveSheet();
