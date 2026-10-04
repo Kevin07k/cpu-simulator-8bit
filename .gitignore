@@ -14,3 +14,7 @@ yarn-error.log
 # Archivos de respaldo y temporales
 *.bak
 *.tmp
+
+# Guías de estudio y apuntes personales de defensa
+GUIA_ESTUDIO_DEFENSA.md
+*guia*estudio*.md

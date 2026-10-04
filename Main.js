@@ -8,9 +8,10 @@
  * Gestiona la persistencia de estado entre ejecuciones mediante PropertiesService.
  */
 
-// Clave para almacenamiento de estado persistente en Google Apps Script
+// Claves para almacenamiento de estado persistente en Google Apps Script
 const STORAGE_KEY_STATE = 'CPU_STATE_SNAPSHOT';
 const STORAGE_KEY_RAM = 'CPU_RAM_SNAPSHOT';
+const STORAGE_KEY_LOGS = 'CPU_LOGS_SNAPSHOT';
 
 /**
  * Función Principal (main): Ejecuta la construcción completa del simulador.
@@ -50,7 +51,7 @@ function onEdit(e) {
   if (!e || !e.range) return;
 
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== globalUI.SHEET_NAME) return;
+  if (sheet.getName() !== getUI().SHEET_NAME) return;
 
   const a1 = e.range.getA1Notation();
   const val = e.value;
@@ -78,12 +79,13 @@ function onEdit(e) {
 }
 
 /**
- * Guarda el estado actual del CPU y la RAM en las propiedades del script.
+ * Guarda el estado actual del CPU, la RAM y los Logs en las propiedades del script.
  */
 function saveState() {
   const reg = getRegisters();
   const mem = getMemory();
   const cpu = getCPU();
+  const log = getLogger();
 
   const props = PropertiesService.getScriptProperties();
   const stateObj = {
@@ -107,24 +109,35 @@ function saveState() {
 
   props.setProperty(STORAGE_KEY_STATE, JSON.stringify(stateObj));
   props.setProperty(STORAGE_KEY_RAM, JSON.stringify(Array.from(mem.bytes)));
+  props.setProperty(STORAGE_KEY_LOGS, JSON.stringify(log.serialize()));
 }
 
 /**
- * Restaura el estado del CPU y la RAM desde las propiedades del script.
+ * Restaura el estado del CPU, la RAM y los Logs desde las propiedades del script.
  */
 function loadState() {
   const reg = getRegisters();
   const mem = getMemory();
   const cpu = getCPU();
+  const log = getLogger();
 
   const props = PropertiesService.getScriptProperties();
   const stateStr = props.getProperty(STORAGE_KEY_STATE);
   const ramStr = props.getProperty(STORAGE_KEY_RAM);
+  const logsStr = props.getProperty(STORAGE_KEY_LOGS);
 
   if (ramStr) {
     const rawArr = JSON.parse(ramStr);
     for (let i = 0; i < rawArr.length; i++) {
       mem.bytes[i] = rawArr[i];
+    }
+  }
+
+  if (logsStr) {
+    try {
+      log.deserialize(JSON.parse(logsStr));
+    } catch (e) {
+      // Ignorar si el formato es antiguo
     }
   }
 
@@ -244,7 +257,9 @@ function btnStepPhase() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    console.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT');
+    saveState();
+    ui.renderCycle(cpu, log);
     return;
   }
 
@@ -256,7 +271,7 @@ function btnStepPhase() {
 }
 
 /**
- * Macro: Ejecutar las 4 fases de una instrucción completa.
+ * Macro: Ejecutar las 4 fases de una instrucción completa registrando cada micro-operación.
  */
 function btnStepInstruction() {
   loadState();
@@ -265,19 +280,26 @@ function btnStepInstruction() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    console.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT');
+    saveState();
+    ui.renderCycle(cpu, log);
     return;
   }
 
-  const state = cpu.stepInstruction();
-  log.log(state.lastLog, 'STORE');
+  const startCount = cpu.instructionCount;
+  let guard = 0;
+  while (cpu.instructionCount === startCount && !cpu.isHalted && guard < 10) {
+    const state = cpu.stepPhase();
+    log.log(state.lastLog, state.phase);
+    guard++;
+  }
 
   saveState();
   ui.renderCycle(cpu, log);
 }
 
 /**
- * Macro: Ejecución continua secuencial del programa completo.
+ * Macro: Ejecución continua secuencial del programa completo con registro de traza.
  */
 function btnRunContinuous() {
   loadState();
@@ -286,7 +308,9 @@ function btnRunContinuous() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    console.log('Aviso: El CPU está detenido (HLT). Presione RESET antes de ejecutar.');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET antes de ejecutar.', 'HALT');
+    saveState();
+    ui.renderCycle(cpu, log);
     return;
   }
 
@@ -294,7 +318,8 @@ function btnRunContinuous() {
   let cycles = 0;
 
   while (!cpu.isHalted && cycles < MAX_CYCLES) {
-    cpu.stepPhase();
+    const state = cpu.stepPhase();
+    log.log(state.lastLog, state.phase);
     cycles++;
   }
 
@@ -315,7 +340,6 @@ function btnReset() {
 
   reg.reset();
   cpu.reset();
-  log.clear();
   log.log('Registros y CPU restablecidos a 0x00. Memoria preservada.', 'RESET');
 
   saveState();

@@ -22,6 +22,24 @@ class Logger {
   }
 
   /**
+   * Serializa las entradas del log para persistencia en PropertiesService.
+   * @returns {Array<Object>}
+   */
+  serialize() {
+    return this.logs;
+  }
+
+  /**
+   * Restaura las entradas del log desde PropertiesService.
+   * @param {Array<Object>} data
+   */
+  deserialize(data) {
+    if (Array.isArray(data)) {
+      this.logs = data;
+    }
+  }
+
+  /**
    * Añade una nueva entrada al registro cronológico.
    * @param {string} message Mensaje descriptivo de la micro-operación
    * @param {string} phase Fase del ciclo (FETCH, DECODE, EXECUTE, STORE)
@@ -45,7 +63,7 @@ class Logger {
    * @param {number} totalRows Cantidad de filas a rellenar en la tabla de la hoja
    * @returns {Array<Array<string>>}
    */
-  dumpForSheet(totalRows = 15) {
+  dumpForSheet(totalRows = 13) {
     const rows = [];
     for (let i = 0; i < totalRows; i++) {
       if (i < this.logs.length) {

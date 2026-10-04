@@ -176,6 +176,9 @@ class UIRenderer {
 
     // Cuadrícula y Bordes de Memoria
     sheet.getRange('I6:X21').setBorder(true, true, true, true, true, true, '#94A3B8', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange('I6:X21').setNumberFormat('@'); // Forzar texto plano para preservar "00", "01", "06", etc.
+    sheet.getRange('C5:G11').setNumberFormat('@'); // Preservar 8 bits con ceros a la izquierda (00000001)
+    sheet.getRange('B16:G28').setNumberFormat('@'); // Preservar formato de hora y texto en logs
 
     // Leyenda de Segmentación (Filas 23 y 24)
     sheet.getRange('I23:M23').merge()
