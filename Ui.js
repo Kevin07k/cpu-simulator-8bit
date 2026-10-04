@@ -12,7 +12,7 @@ class UIRenderer {
   constructor() {
     this.SHEET_NAME = 'Simulador_CPU_8bit';
     
-    // Paleta de Colores de Alto Rendimiento
+    // Paleta de Colores de Alto Rendimiento y Fases del CPU
     this.COLORS = {
       HEADER_BG: '#1E293B',       // Azul pizarra oscuro
       HEADER_TEXT: '#FFFFFF',
@@ -26,6 +26,40 @@ class UIRenderer {
       FLAG_OFF: '#E2E8F0',        // Gris inactivo
       TEXT_DARK: '#0F172A',
       TEXT_MUTED: '#64748B'
+    };
+
+    // Estilos Visuales por Micro-fase (Alineados al temario de Arquitectura)
+    this.PHASE_STYLES = {
+      FETCH: {
+        bg: '#EFF6FF',      // Azul claro
+        text: '#1D4ED8',    // Azul oscuro
+        badge: '🔵 FETCH'
+      },
+      DECODE: {
+        bg: '#FFFBEB',      // Ámbar claro
+        text: '#B45309',    // Ámbar oscuro
+        badge: '🟠 DECODE'
+      },
+      EXECUTE: {
+        bg: '#ECFDF5',      // Verde esmeralda claro
+        text: '#047857',    // Verde oscuro
+        badge: '🟢 EXECUTE'
+      },
+      STORE: {
+        bg: '#FAF5FF',      // Púrpura claro
+        text: '#6D28D9',    // Púrpura oscuro
+        badge: '🟣 STORE'
+      },
+      HALT: {
+        bg: '#FEF2F2',      // Rojo suave
+        text: '#B91C1C',    // Rojo
+        badge: '🔴 HALT'
+      },
+      DEFAULT: {
+        bg: '#F8FAFC',      // Slate suave
+        text: '#334155',    // Slate oscuro
+        badge: '⚪ INFO'
+      }
     };
   }
 
@@ -43,15 +77,14 @@ class UIRenderer {
     }
 
     if (!ss) {
-        const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
-        if (files.hasNext()) {
-          ss = SpreadsheetApp.open(files.next());
-        } else {
-          ss = SpreadsheetApp.create('Simulador CPU 8-Bit (von Neumann)');
-        }
+      const files = DriveApp.getFilesByName('Simulador CPU 8-Bit (von Neumann)');
+      if (files.hasNext()) {
+        ss = SpreadsheetApp.open(files.next());
+      } else {
+        ss = SpreadsheetApp.create('Simulador CPU 8-Bit (von Neumann)');
       }
+    }
 
-    // Utiliza la pestaña actualmente activa/visible para que el usuario vea el dibujo de inmediato
     let sheet = ss.getActiveSheet();
     if (!sheet) {
       sheet = ss.getSheets()[0];
@@ -60,7 +93,7 @@ class UIRenderer {
     try {
       sheet.setName(this.SHEET_NAME);
     } catch (e) {
-      // Si ya existe otra pestaña con ese nombre, continuar en la actual
+      // Continuar en la hoja activa si ya existe
     }
 
     return sheet;
@@ -71,7 +104,7 @@ class UIRenderer {
    */
   formatSheet() {
     const sheet = this.getSheet();
-    sheet.activate(); // Enfocar y cambiar automáticamente a la pestaña del simulador
+    sheet.activate();
     sheet.clear();
     sheet.setHiddenGridlines(false);
 
@@ -79,7 +112,7 @@ class UIRenderer {
     sheet.getRange('B1:X1').merge()
       .setValue('SIMULADOR DE CPU VON NEUMANN (8 BITS) — ARQUITECTURA X86')
       .setFontFamily('Consolas')
-      .setFontSize(14)
+      .setFontSize(13)
       .setFontWeight('bold')
       .setHorizontalAlignment('center')
       .setBackground(this.COLORS.HEADER_BG)
@@ -95,7 +128,7 @@ class UIRenderer {
 
     // 2. PANEL DE REGISTROS (Columnas B a G, Filas 4 a 11)
     sheet.getRange('B4:G4').merge()
-      .setValue('DASHBOARD DEL PROCESADOR Y REGISTROS')
+      .setValue('DASHBOARD DEL PROCESADOR Y REGISTROS INTERNOS')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
       .setBackground('#0F172A')
@@ -103,22 +136,23 @@ class UIRenderer {
       .setHorizontalAlignment('center');
 
     const regHeaders = [
-      ['REGISTRO', 'VALOR (HEX)', 'BINARIO (8-BIT)', 'DECIMAL / VALOR', 'ESTADO', 'INFO'],
+      ['REGISTRO', 'VALOR (HEX)', 'BINARIO (8-BIT)', 'DECIMAL (VALOR)', 'ESTADO', 'INFO / ASM'],
       ['PC (Program Counter)', '0x00', '00000000', '0', 'IDLE', 'Puntero Inst.'],
       ['IR (Instruction Reg)', '0x00', '00000000', '0', 'NOP', 'Opcode Actual'],
       ['MAR (Memory Address)', '0x00', '00000000', '0', 'READY', 'Bus Direcciones'],
       ['MDR (Memory Data)',    '0x00', '00000000', '0', 'READY', 'Bus de Datos'],
-      ['AX (Acumulador)',      '0x00', '00000000', '0', 'READY', 'Registro A'],
-      ['BX (Propósito Gral)',  '0x00', '00000000', '0', 'READY', 'Registro B']
+      ['AX (Acumulador)',      '0x00', '00000000', '0 (+0)', 'READY', 'Registro AX'],
+      ['BX (Propósito Gral)',  '0x00', '00000000', '0 (+0)', 'READY', 'Registro BX']
     ];
     sheet.getRange('B5:G11').setValues(regHeaders)
       .setFontFamily('Consolas')
       .setFontSize(9);
-    sheet.getRange('B5:G5').setFontWeight('bold').setBackground('#E2E8F0');
+    sheet.getRange('B5:G5').setFontWeight('bold').setBackground('#E2E8F0').setHorizontalAlignment('center');
+    sheet.getRange('B6:B11').setFontWeight('bold');
 
     // Banderas de Estado (FLAGS)
     sheet.getRange('B12:G12').merge()
-      .setValue('BANDERAS DE ESTADO: ZF = 0  |  CF = 0  |  SF = 0')
+      .setValue('BANDERAS DE ESTADO: ZF = 0  |  CF = 0  |  SF = 0   [Ciclos: 0 | Instrucciones: 0]')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
       .setHorizontalAlignment('center')
@@ -134,14 +168,14 @@ class UIRenderer {
       .setFontColor('#A7F3D0')
       .setHorizontalAlignment('center');
 
-    sheet.getRange('B15:G15').setValues([['HORA', 'FASE', 'DETALLE DE LA MICRO-OPERACIÓN', '', '', '']])
+    sheet.getRange('B15:G15').setValues([['HORA', 'FASE', 'DETALLE DE LA MICRO-OPERACIÓN (TRANSFERENCIAS / ALU)', '', '', '']])
       .setFontFamily('Consolas')
       .setFontSize(9)
       .setFontWeight('bold')
       .setBackground('#E2E8F0');
     sheet.getRange('D15:G15').merge();
 
-    // Rellenar filas de log vacías iniciales
+    // Rellenar y fusionar filas de log vacías iniciales
     for (let r = 16; r <= 28; r++) {
       sheet.getRange(`D${r}:G${r}`).merge();
     }
@@ -178,28 +212,31 @@ class UIRenderer {
     sheet.getRange('I6:X21').setBorder(true, true, true, true, true, true, '#94A3B8', SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange('I6:X21').setNumberFormat('@'); // Forzar texto plano para preservar "00", "01", "06", etc.
     sheet.getRange('C5:G11').setNumberFormat('@'); // Preservar 8 bits con ceros a la izquierda (00000001)
-    sheet.getRange('B16:G28').setNumberFormat('@'); // Preservar formato de hora y texto en logs
+    sheet.getRange('B16:G28').setNumberFormat('@'); // Preservar formato en logs
 
     // Leyenda de Segmentación (Filas 23 y 24)
     sheet.getRange('I23:M23').merge()
-      .setValue('🟦 Segmento de Código (00h - 7Fh)')
+      .setValue('🟦 Segmento Código (00h-7Fh)')
       .setFontFamily('Consolas')
       .setFontSize(8)
+      .setHorizontalAlignment('center')
       .setBackground(this.COLORS.CODE_SEG_BG);
 
     sheet.getRange('N23:R23').merge()
-      .setValue('🟩 Segmento de Datos (80h - FFh)')
+      .setValue('🟩 Segmento Datos (80h-FFh)')
       .setFontFamily('Consolas')
       .setFontSize(8)
+      .setHorizontalAlignment('center')
       .setBackground(this.COLORS.DATA_SEG_BG);
 
     sheet.getRange('S23:X23').merge()
       .setValue('🟨 Celda Activa / Fetch')
       .setFontFamily('Consolas')
       .setFontSize(8)
+      .setHorizontalAlignment('center')
       .setBackground(this.COLORS.HIGHLIGHT_FETCH);
 
-    // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 30 a 34)
+    // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 30 a 35)
     sheet.getRange('B30:X30').merge()
       .setValue('🎮 PANEL DE CONTROL INTERACTIVO (Marca la casilla para accionar)')
       .setFontFamily('Consolas')
@@ -210,38 +247,38 @@ class UIRenderer {
 
     // Controles de Ejecución (Fila 32)
     sheet.getRange('B32').insertCheckboxes();
-    sheet.getRange('C32').setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('C32:E32').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     sheet.getRange('F32').insertCheckboxes();
-    sheet.getRange('G32').setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('G32:J32').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     sheet.getRange('K32').insertCheckboxes();
-    sheet.getRange('L32:N32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('L32:O32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     sheet.getRange('P32').insertCheckboxes();
-    sheet.getRange('Q32:S32').merge().setValue('🔄 Reset CPU / Regs').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('Q32:T32').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     // Controles de Carga de Programas (Fila 34)
     sheet.getRange('B34').insertCheckboxes();
-    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     sheet.getRange('F34').insertCheckboxes();
-    sheet.getRange('G34:I34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('G34:J34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
     sheet.getRange('K34').insertCheckboxes();
-    sheet.getRange('L34:N34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold');
+    sheet.getRange('L34:O34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
 
-    // Ajustar anchos de columnas para simetría perfecta
-    sheet.setColumnWidth(1, 20);  // Col A (Margen)
-    sheet.setColumnWidth(2, 140); // Col B
-    sheet.setColumnWidth(3, 85);  // Col C
-    sheet.setColumnWidth(4, 90);  // Col D
-    sheet.setColumnWidth(5, 90);  // Col E
-    sheet.setColumnWidth(6, 85);  // Col F
-    sheet.setColumnWidth(7, 100); // Col G
-    sheet.setColumnWidth(8, 45);  // Col H (Fila 00_)
+    // Ajustar anchos de columnas para proporción y legibilidad perfectas (Evita solapamientos)
+    sheet.setColumnWidth(1, 18);  // Col A (Margen)
+    sheet.setColumnWidth(2, 155); // Col B (Registro / Hora)
+    sheet.setColumnWidth(3, 105); // Col C (Valor Hex / Fase)
+    sheet.setColumnWidth(4, 125); // Col D (Binario 8-Bit)
+    sheet.setColumnWidth(5, 125); // Col E (Decimal / Valor)
+    sheet.setColumnWidth(6, 95);  // Col F (Estado)
+    sheet.setColumnWidth(7, 180); // Col G (Info / Desensamblado)
+    sheet.setColumnWidth(8, 48);  // Col H (Fila 00_ a F0_)
     for (let c = 9; c <= 24; c++) {
-      sheet.setColumnWidth(c, 40); // Columnas I a X (Matriz 16x16)
+      sheet.setColumnWidth(c, 44); // Columnas I a X (Matriz 16x16 de Memoria)
     }
 
     // Aplicar fondos de segmentación iniciales a la matriz 16x16
@@ -267,9 +304,9 @@ class UIRenderer {
         if (addr === activeAddr) {
           rowBg.push(highlightColor);
         } else if (addr <= 0x7F) {
-          rowBg.push(this.COLORS.CODE_SEG_BG); // Segmento de Código
+          rowBg.push(this.COLORS.CODE_SEG_BG);
         } else {
-          rowBg.push(this.COLORS.DATA_SEG_BG); // Segmento de Datos
+          rowBg.push(this.COLORS.DATA_SEG_BG);
         }
       }
       backgrounds.push(rowBg);
@@ -306,8 +343,8 @@ class UIRenderer {
       [`0x${snap.IR.hex}`,  snap.IR.bin,  snap.IR.dec.toString(),  cu.decode(proc.registers.IR).mnemonic, cu.disassemble(proc.registers.IR, proc.operandByte)],
       [`0x${snap.MAR.hex}`, snap.MAR.bin, snap.MAR.dec.toString(), 'ACTIVE', `Dir=0x${snap.MAR.hex}`],
       [`0x${snap.MDR.hex}`, snap.MDR.bin, snap.MDR.dec.toString(), 'ACTIVE', `Dato=0x${snap.MDR.hex}`],
-      [`0x${snap.AX.hex}`,  snap.AX.bin,  `${snap.AX.dec} (${snap.AX.signed})`, 'ACTIVE', 'Acumulador'],
-      [`0x${snap.BX.hex}`,  snap.BX.bin,  `${snap.BX.dec} (${snap.BX.signed})`, 'ACTIVE', 'General']
+      [`0x${snap.AX.hex}`,  snap.AX.bin,  `${snap.AX.dec} (${snap.AX.signed >= 0 ? '+' : ''}${snap.AX.signed})`, 'ACTIVE', 'Acumulador AX'],
+      [`0x${snap.BX.hex}`,  snap.BX.bin,  `${snap.BX.dec} (${snap.BX.signed >= 0 ? '+' : ''}${snap.BX.signed})`, 'ACTIVE', 'Registro BX']
     ];
 
     sheet.getRange('C6:G11').setValues(values);
@@ -318,22 +355,46 @@ class UIRenderer {
   }
 
   /**
-   * Sincroniza las entradas del Logger en la tabla visual de la hoja.
+   * Sincroniza las entradas del Logger en la tabla visual con insignias y colores de fase.
    * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
    * @param {Logger} logger
    */
   updateLogs(sheet, logger) {
     const log = logger || getLogger();
     const entries = log.dumpForSheet(13);
-    const tableData = entries.map(item => [item[0], item[1], item[2]]);
     
-    // Asignar en bloque
+    const times = [];
+    const badges = [];
+    const details = [];
+    const rowBgs = [];
+    const badgeColors = [];
+
     for (let i = 0; i < 13; i++) {
-      const rowIdx = 16 + i;
-      sheet.getRange(`B${rowIdx}`).setValue(tableData[i][0]);
-      sheet.getRange(`C${rowIdx}`).setValue(tableData[i][1]);
-      sheet.getRange(`D${rowIdx}:G${rowIdx}`).setValue(tableData[i][2]);
+      const item = entries[i];
+      const timeVal = item[0];
+      const phaseKey = item[1];
+      const detailVal = item[2];
+
+      const style = this.PHASE_STYLES[phaseKey] || this.PHASE_STYLES.DEFAULT;
+      const badge = (phaseKey === '--') ? '--' : (this.PHASE_STYLES[phaseKey] ? this.PHASE_STYLES[phaseKey].badge : `⚪ ${phaseKey}`);
+      const bg = (phaseKey === '--') ? '#FFFFFF' : style.bg;
+      const fg = (phaseKey === '--') ? '#94A3B8' : style.text;
+
+      times.push([timeVal]);
+      badges.push([badge]);
+      details.push([detailVal]);
+      rowBgs.push([bg, bg, bg, bg, bg, bg]);
+      badgeColors.push([fg]);
     }
+
+    sheet.getRange('B16:B28').setValues(times).setHorizontalAlignment('center');
+    sheet.getRange('C16:C28').setValues(badges).setHorizontalAlignment('center').setFontWeight('bold').setFontColors(badgeColors);
+    
+    for (let i = 0; i < 13; i++) {
+      sheet.getRange(`D${16 + i}:G${16 + i}`).setValue(details[i][0]).setHorizontalAlignment('left').setWrap(false);
+    }
+    
+    sheet.getRange('B16:G28').setBackgrounds(rowBgs);
   }
 
   /**
@@ -346,7 +407,6 @@ class UIRenderer {
     const proc = cpu || getCPU();
     const log = logger || getLogger();
 
-    // 1. Matriz de memoria y celdas activas
     let activeAddr = -1;
     let highlightColor = this.COLORS.HIGHLIGHT_FETCH;
 

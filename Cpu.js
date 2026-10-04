@@ -125,7 +125,7 @@ class CPU {
     this.registers.incrementPC();
 
     this.activeHighlight = { type: 'MEM_FETCH', target: fetchAddress };
-    this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] FETCH: MAR=0x${Memory.toHex8(fetchAddress)} ➔ MDR=0x${Memory.toHex8(this.registers.MDR)} ➔ IR=0x${Memory.toHex8(this.registers.IR)}, PC=0x${Memory.toHex8(this.registers.PC)}`;
+    this.lastMicroOpLog = `MAR=0x${Memory.toHex8(fetchAddress)} ➔ MDR=0x${Memory.toHex8(this.registers.MDR)} ➔ IR=0x${Memory.toHex8(this.registers.IR)}, PC=0x${Memory.toHex8(this.registers.PC)}`;
   }
 
   /**
@@ -148,7 +148,7 @@ class CPU {
 
     const humanReadable = this.controlUnit.disassemble(this.registers.IR, this.operandByte);
     this.activeHighlight = { type: 'REG', target: 'IR' };
-    this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] DECODE: IR=0x${Memory.toHex8(this.registers.IR)} [${humanReadable}] (Modo: ${this.currentInstruction.mode})`;
+    this.lastMicroOpLog = `Decodifica IR=0x${Memory.toHex8(this.registers.IR)} [${humanReadable}] (${this.currentInstruction.mode})`;
   }
 
   /**
@@ -165,30 +165,30 @@ class CPU {
     switch (op) {
       // --- NOP & HLT ---
       case 0x00: // NOP
-        actionDetail = 'NOP: Ninguna operación efectuada';
+        actionDetail = 'NOP: Sin operación';
         break;
       case 0xFF: // HLT
         this.isHalted = true;
-        actionDetail = 'HLT: Reloj del procesador detenido (Halt)';
+        actionDetail = 'HLT: Procesador detenido';
         this.activeHighlight = { type: 'HALT', target: null };
         break;
 
       // --- MOV ---
       case 0x01: // MOV AX, imm
         this.storeTarget = { type: 'REG', dest: 'AX', value: immOrDir };
-        actionDetail = `MOV: Preparar AX <- 0x${Memory.toHex8(immOrDir)}`;
+        actionDetail = `MOV: AX 🠄 0x${Memory.toHex8(immOrDir)}`;
         break;
       case 0x02: // MOV BX, imm
         this.storeTarget = { type: 'REG', dest: 'BX', value: immOrDir };
-        actionDetail = `MOV: Preparar BX <- 0x${Memory.toHex8(immOrDir)}`;
+        actionDetail = `MOV: BX 🠄 0x${Memory.toHex8(immOrDir)}`;
         break;
       case 0x03: // MOV AX, BX
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.registers.BX };
-        actionDetail = `MOV: Preparar AX <- BX (0x${Memory.toHex8(this.registers.BX)})`;
+        actionDetail = `MOV: AX 🠄 BX (0x${Memory.toHex8(this.registers.BX)})`;
         break;
       case 0x04: // MOV BX, AX
         this.storeTarget = { type: 'REG', dest: 'BX', value: this.registers.AX };
-        actionDetail = `MOV: Preparar BX <- AX (0x${Memory.toHex8(this.registers.AX)})`;
+        actionDetail = `MOV: BX 🠄 AX (0x${Memory.toHex8(this.registers.AX)})`;
         break;
 
       // --- LOAD & STORE ---
@@ -196,138 +196,138 @@ class CPU {
         this.registers.MAR = immOrDir;
         this.registers.MDR = this.memory.Read(this.registers.MAR);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.registers.MDR };
-        actionDetail = `LOAD: RAM[0x${Memory.toHex8(immOrDir)}] (0x${Memory.toHex8(this.registers.MDR)}) -> AX`;
+        actionDetail = `LOAD: RAM[0x${Memory.toHex8(immOrDir)}] (0x${Memory.toHex8(this.registers.MDR)}) ➔ AX`;
         break;
       case 0x06: // LOAD BX, [dir]
         this.registers.MAR = immOrDir;
         this.registers.MDR = this.memory.Read(this.registers.MAR);
         this.storeTarget = { type: 'REG', dest: 'BX', value: this.registers.MDR };
-        actionDetail = `LOAD: RAM[0x${Memory.toHex8(immOrDir)}] (0x${Memory.toHex8(this.registers.MDR)}) -> BX`;
+        actionDetail = `LOAD: RAM[0x${Memory.toHex8(immOrDir)}] (0x${Memory.toHex8(this.registers.MDR)}) ➔ BX`;
         break;
       case 0x07: // STORE [dir], AX
         this.storeTarget = { type: 'MEM', dest: immOrDir, value: this.registers.AX };
-        actionDetail = `STORE: AX (0x${Memory.toHex8(this.registers.AX)}) -> RAM[0x${Memory.toHex8(immOrDir)}]`;
+        actionDetail = `STORE: AX (0x${Memory.toHex8(this.registers.AX)}) ➔ RAM[0x${Memory.toHex8(immOrDir)}]`;
         break;
       case 0x08: // STORE [dir], BX
         this.storeTarget = { type: 'MEM', dest: immOrDir, value: this.registers.BX };
-        actionDetail = `STORE: BX (0x${Memory.toHex8(this.registers.BX)}) -> RAM[0x${Memory.toHex8(immOrDir)}]`;
+        actionDetail = `STORE: BX (0x${Memory.toHex8(this.registers.BX)}) ➔ RAM[0x${Memory.toHex8(immOrDir)}]`;
         break;
 
       // --- ARITMÉTICA ---
       case 0x10: // ADD AX, imm
         this.executionResult = this.alu.ADD(this.registers.AX, immOrDir);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU ADD: AX(0x${Memory.toHex8(this.registers.AX)}) + 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `ADD: AX + 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x11: // ADD AX, BX
         this.executionResult = this.alu.ADD(this.registers.AX, this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU ADD: AX(0x${Memory.toHex8(this.registers.AX)}) + BX(0x${Memory.toHex8(this.registers.BX)}) = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `ADD: AX + BX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x12: // SUB AX, imm
         this.executionResult = this.alu.SUB(this.registers.AX, immOrDir);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU SUB: AX(0x${Memory.toHex8(this.registers.AX)}) - 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `SUB: AX - 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x13: // SUB AX, BX
         this.executionResult = this.alu.SUB(this.registers.AX, this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU SUB: AX(0x${Memory.toHex8(this.registers.AX)}) - BX(0x${Memory.toHex8(this.registers.BX)}) = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `SUB: AX - BX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x14: // INC AX
         this.executionResult = this.alu.INC(this.registers.AX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU INC: AX <- 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `INC: AX 🠄 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x15: // INC BX
         this.executionResult = this.alu.INC(this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'BX', value: this.executionResult };
-        actionDetail = `ALU INC: BX <- 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `INC: BX 🠄 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x16: // DEC AX
         this.executionResult = this.alu.DEC(this.registers.AX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU DEC: AX <- 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `DEC: AX 🠄 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x17: // DEC BX
         this.executionResult = this.alu.DEC(this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'BX', value: this.executionResult };
-        actionDetail = `ALU DEC: BX <- 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `DEC: BX 🠄 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x18: // CMP AX, imm
         this.alu.CMP(this.registers.AX, immOrDir);
-        actionDetail = `ALU CMP: Comparar AX(0x${Memory.toHex8(this.registers.AX)}) con 0x${Memory.toHex8(immOrDir)}`;
+        actionDetail = `CMP: Compara AX(0x${Memory.toHex8(this.registers.AX)}) con 0x${Memory.toHex8(immOrDir)}`;
         break;
       case 0x19: // CMP AX, BX
         this.alu.CMP(this.registers.AX, this.registers.BX);
-        actionDetail = `ALU CMP: Comparar AX(0x${Memory.toHex8(this.registers.AX)}) con BX(0x${Memory.toHex8(this.registers.BX)})`;
+        actionDetail = `CMP: Compara AX(0x${Memory.toHex8(this.registers.AX)}) con BX(0x${Memory.toHex8(this.registers.BX)})`;
         break;
 
       // --- LÓGICA ---
       case 0x20: // AND AX, imm
         this.executionResult = this.alu.AND(this.registers.AX, immOrDir);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU AND: AX & 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `AND: AX & 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x21: // AND AX, BX
         this.executionResult = this.alu.AND(this.registers.AX, this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU AND: AX & BX = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `AND: AX & BX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x22: // OR AX, imm
         this.executionResult = this.alu.OR(this.registers.AX, immOrDir);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU OR: AX | 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `OR: AX | 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x23: // OR AX, BX
         this.executionResult = this.alu.OR(this.registers.AX, this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU OR: AX | BX = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `OR: AX | BX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x24: // XOR AX, imm
         this.executionResult = this.alu.XOR(this.registers.AX, immOrDir);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU XOR: AX ^ 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `XOR: AX ^ 0x${Memory.toHex8(immOrDir)} = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x25: // XOR AX, BX
         this.executionResult = this.alu.XOR(this.registers.AX, this.registers.BX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU XOR: AX ^ BX = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `XOR: AX ^ BX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
       case 0x26: // NOT AX
         this.executionResult = this.alu.NOT(this.registers.AX);
         this.storeTarget = { type: 'REG', dest: 'AX', value: this.executionResult };
-        actionDetail = `ALU NOT: ~AX = 0x${Memory.toHex8(this.executionResult)}`;
+        actionDetail = `NOT: ~AX = 0x${Memory.toHex8(this.executionResult)}`;
         break;
 
       // --- BIFURCACIONES ---
       case 0x30: // JMP dir
         this.registers.PC = immOrDir;
-        actionDetail = `JMP: Salto incondicional a 0x${Memory.toHex8(immOrDir)}`;
+        actionDetail = `JMP: Salto incondicional ➔ PC=0x${Memory.toHex8(immOrDir)}`;
         break;
       case 0x31: // JZ dir
         if (this.registers.ZF === 1) {
           this.registers.PC = immOrDir;
-          actionDetail = `JZ: Salto ejecutado (ZF=1) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
+          actionDetail = `JZ: Salto tomado (ZF=1) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
         } else {
-          actionDetail = `JZ: Salto ignorado (ZF=0) ➔ Continúa a PC=0x${Memory.toHex8(this.registers.PC)}`;
+          actionDetail = `JZ: Salto no tomado (ZF=0) ➔ Siguiente PC=0x${Memory.toHex8(this.registers.PC)}`;
         }
         break;
       case 0x32: // JNZ dir
         if (this.registers.ZF === 0) {
           this.registers.PC = immOrDir;
-          actionDetail = `JNZ: Salto ejecutado (ZF=0) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
+          actionDetail = `JNZ: Salto tomado (ZF=0) ➔ PC=0x${Memory.toHex8(immOrDir)}`;
         } else {
-          actionDetail = `JNZ: Salto ignorado (ZF=1) ➔ Continúa a PC=0x${Memory.toHex8(this.registers.PC)}`;
+          actionDetail = `JNZ: Salto no tomado (ZF=1) ➔ Siguiente PC=0x${Memory.toHex8(this.registers.PC)}`;
         }
         break;
 
       default:
-        actionDetail = `Opcode no reconocido (0x${Memory.toHex8(op)})`;
+        actionDetail = `Opcode 0x${Memory.toHex8(op)}`;
     }
 
     this.activeHighlight = { type: 'ALU', target: op };
-    this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] EXECUTE: ${actionDetail} | ${this.registers.getSnapshot().FLAGS.summary}`;
+    this.lastMicroOpLog = `${actionDetail} | ${this.registers.getSnapshot().FLAGS.summary}`;
   }
 
   /**
@@ -336,7 +336,7 @@ class CPU {
    */
   _phaseStore() {
     if (!this.storeTarget) {
-      this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: Operación finalizada sin almacenamiento en destino`;
+      this.lastMicroOpLog = `Fin de ciclo (sin escritura en destino)`;
       this.activeHighlight = { type: 'NONE', target: null };
       return;
     }
@@ -349,7 +349,7 @@ class CPU {
         this.registers.BX = this.storeTarget.value;
         this.activeHighlight = { type: 'REG', target: 'BX' };
       }
-      this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: Registro ${this.storeTarget.dest} 🠄 0x${Memory.toHex8(this.storeTarget.value)}`;
+      this.lastMicroOpLog = `Reg ${this.storeTarget.dest} 🠄 0x${Memory.toHex8(this.storeTarget.value)}`;
     } else if (this.storeTarget.type === 'MEM') {
       const targetAddr = this.storeTarget.dest;
       if (typeof targetAddr === 'number' && targetAddr >= 0 && targetAddr < 256) {
@@ -357,10 +357,10 @@ class CPU {
         this.registers.MDR = this.storeTarget.value;
         this.memory.Write(this.registers.MAR, this.registers.MDR);
         this.activeHighlight = { type: 'MEM_WRITE', target: targetAddr };
-        this.lastMicroOpLog = `[Paso ${this.cycleCount + 1}] STORE: MDR(0x${Memory.toHex8(this.registers.MDR)}) ➔ RAM[0x${Memory.toHex8(targetAddr)}]`;
+        this.lastMicroOpLog = `MDR(0x${Memory.toHex8(this.registers.MDR)}) ➔ RAM[0x${Memory.toHex8(targetAddr)}]`;
       }
     }
-    this.storeTarget = null; // Limpiar para que no persista en ciclos posteriores
+    this.storeTarget = null;
   }
 
   /**

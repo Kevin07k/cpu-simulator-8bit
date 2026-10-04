@@ -18,3 +18,5 @@ yarn-error.log
 # Guías de estudio y apuntes personales de defensa
 GUIA_ESTUDIO_DEFENSA.md
 *guia*estudio*.md
+*.pdf
+*.pptx
