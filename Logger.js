@@ -9,7 +9,7 @@
  */
 
 class Logger {
-  constructor(maxEntries = 25) {
+  constructor(maxEntries = 60) {
     this.maxEntries = maxEntries;
     this.logs = [];
   }
@@ -40,16 +40,26 @@ class Logger {
   }
 
   /**
-   * Añade una nueva entrada al registro cronológico.
+   * Añade una nueva entrada al registro cronológico con métricas detalladas.
    * @param {string} message Mensaje descriptivo de la micro-operación
    * @param {string} phase Fase del ciclo (FETCH, DECODE, EXECUTE, STORE)
+   * @param {Object} [extra] Snapshot opcional de registros, flags y desensamblado
    */
-  log(message, phase = 'INFO') {
+  log(message, phase = 'INFO', extra = null) {
     const timestamp = new Date().toLocaleTimeString('es-BO', { hour12: false });
     const entry = {
       timestamp: timestamp,
       phase: phase,
-      message: message
+      message: message,
+      step: extra && extra.step !== undefined ? extra.step : (this.logs.length + 1),
+      instruction: extra && extra.instruction ? extra.instruction : '',
+      pc: extra && extra.pc ? extra.pc : '',
+      ir: extra && extra.ir ? extra.ir : '',
+      mar: extra && extra.mar ? extra.mar : '',
+      mdr: extra && extra.mdr ? extra.mdr : '',
+      ax: extra && extra.ax ? extra.ax : '',
+      bx: extra && extra.bx ? extra.bx : '',
+      flags: extra && extra.flags ? extra.flags : ''
     };
 
     this.logs.unshift(entry); // Inserta al inicio (más reciente arriba)
@@ -59,8 +69,57 @@ class Logger {
   }
 
   /**
-   * Exporta las entradas del log en formato de matriz 2D para volcado en Sheets.
+   * Exporta las entradas del log en formato extendido para la pestaña dedicada de Logs.
    * @param {number} totalRows Cantidad de filas a rellenar en la tabla de la hoja
+   * @returns {Array<Array<string>>}
+   */
+  dumpForDedicatedSheet(totalRows = 40) {
+    const rows = [];
+    for (let i = 0; i < totalRows; i++) {
+      if (i < this.logs.length) {
+        const item = this.logs[i];
+        rows.push([
+          `#${item.step}`,
+          item.timestamp,
+          item.phase,
+          item.instruction || '--',
+          item.message,
+          item.pc || '--',
+          item.ir || '--',
+          item.mar || '--',
+          item.mdr || '--',
+          item.ax || '--',
+          item.bx || '--',
+          item.flags || '--'
+        ]);
+      } else {
+        rows.push(['--', '--', '--', '', '', '--', '--', '--', '--', '--', '--', '--']);
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * Exporta las últimas 4 micro-operaciones para el monitor en vivo del simulador principal.
+   * @param {number} totalRows
+   * @returns {Array<Array<string>>}
+   */
+  dumpForMiniMonitor(totalRows = 4) {
+    const rows = [];
+    for (let i = 0; i < totalRows; i++) {
+      if (i < this.logs.length) {
+        const item = this.logs[i];
+        rows.push([item.timestamp, item.phase, item.message, item.instruction || '']);
+      } else {
+        rows.push(['--', '--', '', '']);
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * Compatibilidad hacia atrás: volcado para tabla estándar.
+   * @param {number} totalRows
    * @returns {Array<Array<string>>}
    */
   dumpForSheet(totalRows = 13) {
@@ -81,7 +140,7 @@ class Logger {
 var globalLogger = null;
 function getLogger() {
   if (!globalLogger) {
-    globalLogger = new Logger(25);
+    globalLogger = new Logger(60);
   }
   return globalLogger;
 }

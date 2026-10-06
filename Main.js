@@ -28,7 +28,7 @@ function onOpen(e) {
     const ui = SpreadsheetApp.getUi();
     if (ui) {
       ui.createMenu('⚙️ Simulador CPU 8-Bit')
-        .addItem('🛠️ Formatear / Reiniciar Hoja (Setup)', 'btnSetupSheet')
+        .addItem('🛠️ Formatear / Reiniciar Hojas (Setup)', 'btnSetupSheet')
         .addSeparator()
         .addItem('⏯️ Paso a Paso: Micro-fase (Step Phase)', 'btnStepPhase')
         .addItem('⏭️ Paso a Paso: Instrucción Completa (Step Instr)', 'btnStepInstruction')
@@ -37,6 +37,9 @@ function onOpen(e) {
         .addSeparator()
         .addItem('📂 Cargar Programa: Serie de Fibonacci', 'btnLoadFibonacci')
         .addItem('📂 Cargar Programa: Multiplicación Aritmética', 'btnLoadMultiplication')
+        .addSeparator()
+        .addItem('📋 Ver Pestaña de Logs y Auditoría', 'btnShowLogsSheet')
+        .addItem('🏠 Ver Pestaña del Simulador Principal', 'btnShowSimulatorSheet')
         .addToUi();
     }
   } catch (err) {
@@ -51,7 +54,8 @@ function onEdit(e) {
   if (!e || !e.range) return;
 
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== getUI().SHEET_NAME) return;
+  const sheetName = sheet.getName();
+  const ui = getUI();
 
   const a1 = e.range.getA1Notation();
   const val = e.value;
@@ -60,20 +64,33 @@ function onEdit(e) {
   if (val === 'TRUE' || val === true) {
     e.range.setValue(false); // Reset automático de la casilla
 
-    if (a1 === 'B32') {
-      btnStepPhase();
-    } else if (a1 === 'F32') {
-      btnStepInstruction();
-    } else if (a1 === 'K32') {
-      btnRunContinuous();
-    } else if (a1 === 'P32') {
-      btnReset();
-    } else if (a1 === 'B34') {
-      btnLoadFibonacci();
-    } else if (a1 === 'F34') {
-      btnLoadMultiplication();
-    } else if (a1 === 'K34') {
-      btnSetupSheet();
+    // 1. Acciones desde la pestaña dedicada de Logs
+    if (sheetName === ui.LOGS_SHEET_NAME) {
+      if (a1 === 'B2') {
+        btnShowSimulatorSheet();
+      }
+      return;
+    }
+
+    // 2. Acciones desde la pestaña principal del Simulador
+    if (sheetName === ui.SHEET_NAME) {
+      if (a1 === 'B27' || a1 === 'B32') {
+        btnStepPhase();
+      } else if (a1 === 'F27' || a1 === 'F32') {
+        btnStepInstruction();
+      } else if (a1 === 'K27' || a1 === 'K32') {
+        btnRunContinuous();
+      } else if (a1 === 'P27' || a1 === 'P32') {
+        btnReset();
+      } else if (a1 === 'B29' || a1 === 'B34') {
+        btnLoadFibonacci();
+      } else if (a1 === 'F29' || a1 === 'F34') {
+        btnLoadMultiplication();
+      } else if (a1 === 'K29' || a1 === 'K34') {
+        btnSetupSheet();
+      } else if (a1 === 'P29') {
+        btnShowLogsSheet();
+      }
     }
   }
 }
@@ -248,6 +265,27 @@ function btnLoadMultiplication() {
 }
 
 /**
+ * Obtiene métricas extendidas y desensamblado del ciclo actual para auditoría.
+ * @param {CPU} cpu
+ * @returns {Object}
+ */
+function getCycleSnapshotExtra(cpu) {
+  const snap = cpu.registers.getSnapshot();
+  const cu = cpu.controlUnit;
+  return {
+    step: cpu.cycleCount,
+    instruction: cu.disassemble(cpu.registers.IR, cpu.operandByte),
+    pc: `0x${snap.PC.hex}`,
+    ir: `0x${snap.IR.hex}`,
+    mar: `0x${snap.MAR.hex}`,
+    mdr: `0x${snap.MDR.hex}`,
+    ax: `0x${snap.AX.hex} (${snap.AX.signed >= 0 ? '+' : ''}${snap.AX.signed})`,
+    bx: `0x${snap.BX.hex} (${snap.BX.signed >= 0 ? '+' : ''}${snap.BX.signed})`,
+    flags: `ZF=${snap.FLAGS.ZF} CF=${snap.FLAGS.CF} SF=${snap.FLAGS.SF}`
+  };
+}
+
+/**
  * Macro: Ejecutar una sola micro-fase del ciclo (Fetch, Decode, Execute, Store).
  */
 function btnStepPhase() {
@@ -257,14 +295,14 @@ function btnStepPhase() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT', getCycleSnapshotExtra(cpu));
     saveState();
     ui.renderCycle(cpu, log);
     return;
   }
 
   const state = cpu.stepPhase();
-  log.log(state.lastLog, state.phase);
+  log.log(state.lastLog, state.phase, getCycleSnapshotExtra(cpu));
 
   saveState();
   ui.renderCycle(cpu, log);
@@ -280,7 +318,7 @@ function btnStepInstruction() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET para reiniciar.', 'HALT', getCycleSnapshotExtra(cpu));
     saveState();
     ui.renderCycle(cpu, log);
     return;
@@ -290,7 +328,7 @@ function btnStepInstruction() {
   let guard = 0;
   while (cpu.instructionCount === startCount && !cpu.isHalted && guard < 10) {
     const state = cpu.stepPhase();
-    log.log(state.lastLog, state.phase);
+    log.log(state.lastLog, state.phase, getCycleSnapshotExtra(cpu));
     guard++;
   }
 
@@ -308,7 +346,7 @@ function btnRunContinuous() {
   const ui = getUI();
 
   if (cpu.isHalted) {
-    log.log('Aviso: El CPU está detenido (HLT). Presione RESET antes de ejecutar.', 'HALT');
+    log.log('Aviso: El CPU está detenido (HLT). Presione RESET antes de ejecutar.', 'HALT', getCycleSnapshotExtra(cpu));
     saveState();
     ui.renderCycle(cpu, log);
     return;
@@ -319,11 +357,11 @@ function btnRunContinuous() {
 
   while (!cpu.isHalted && cycles < MAX_CYCLES) {
     const state = cpu.stepPhase();
-    log.log(state.lastLog, state.phase);
+    log.log(state.lastLog, state.phase, getCycleSnapshotExtra(cpu));
     cycles++;
   }
 
-  log.log(`Ejecución continua finalizada (${cycles} ciclos procesados)`, 'RUN');
+  log.log(`Ejecución continua finalizada (${cycles} ciclos)`, 'RUN', getCycleSnapshotExtra(cpu));
   saveState();
   ui.renderCycle(cpu, log);
 }
@@ -340,8 +378,30 @@ function btnReset() {
 
   reg.reset();
   cpu.reset();
-  log.log('Registros y CPU restablecidos a 0x00. Memoria preservada.', 'RESET');
+  log.log('Registros y CPU restablecidos a 0x00. Memoria preservada.', 'RESET', getCycleSnapshotExtra(cpu));
 
   saveState();
   ui.renderCycle(cpu, log);
+}
+
+/**
+ * Macro: Cambia la vista activa a la pestaña dedicada de Logs y Auditoría.
+ */
+function btnShowLogsSheet() {
+  try {
+    getUI().getLogsSheet().activate();
+  } catch (e) {
+    console.log('Error abriendo pestaña de logs: ' + e);
+  }
+}
+
+/**
+ * Macro: Cambia la vista activa a la pestaña principal del Simulador CPU.
+ */
+function btnShowSimulatorSheet() {
+  try {
+    getUI().getSheet().activate();
+  } catch (e) {
+    console.log('Error abriendo pestaña del simulador: ' + e);
+  }
 }

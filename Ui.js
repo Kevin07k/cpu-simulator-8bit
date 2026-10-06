@@ -11,6 +11,7 @@
 class UIRenderer {
   constructor() {
     this.SHEET_NAME = 'Simulador_CPU_8bit';
+    this.LOGS_SHEET_NAME = 'Logs_MicroOperaciones';
     
     // Paleta de Colores de Alto Rendimiento y Fases del CPU
     this.COLORS = {
@@ -64,8 +65,7 @@ class UIRenderer {
   }
 
   /**
-   * Obtiene o crea la hoja activa para la simulación.
-   * Pinta directamente en la pestaña activa visible del usuario.
+   * Obtiene o crea la hoja principal para la simulación.
    * @returns {GoogleAppsScript.Spreadsheet.Sheet}
    */
   getSheet() {
@@ -85,18 +85,96 @@ class UIRenderer {
       }
     }
 
-    let sheet = ss.getActiveSheet();
+    let sheet = ss.getSheetByName(this.SHEET_NAME);
     if (!sheet) {
-      sheet = ss.getSheets()[0];
-    }
-    
-    try {
-      sheet.setName(this.SHEET_NAME);
-    } catch (e) {
-      // Continuar en la hoja activa si ya existe
+      sheet = ss.getActiveSheet();
+      try {
+        sheet.setName(this.SHEET_NAME);
+      } catch (e) {
+        sheet = ss.insertSheet(this.SHEET_NAME);
+      }
     }
 
     return sheet;
+  }
+
+  /**
+   * Obtiene o crea la hoja secundaria dedicada exclusivamente a los Logs y Auditoría.
+   * @returns {GoogleAppsScript.Spreadsheet.Sheet}
+   */
+  getLogsSheet() {
+    const mainSheet = this.getSheet();
+    const ss = mainSheet.getParent();
+    let logsSheet = ss.getSheetByName(this.LOGS_SHEET_NAME);
+    if (!logsSheet) {
+      logsSheet = ss.insertSheet(this.LOGS_SHEET_NAME);
+    }
+    return logsSheet;
+  }
+
+  /**
+   * Formatea la hoja secundaria dedicada para el registro histórico extendido.
+   */
+  formatLogsSheet() {
+    const sheet = this.getLogsSheet();
+    sheet.clear();
+    sheet.setHiddenGridlines(false);
+
+    // 1. TÍTULO Y BANNER SUPERIOR
+    sheet.getRange('B1:M1').merge()
+      .setValue('AUDITORÍA Y REGISTRO CRONOLÓGICO DE MICRO-OPERACIONES (RTL & BUSES)')
+      .setFontFamily('Consolas')
+      .setFontSize(13)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setBackground(this.COLORS.HEADER_BG)
+      .setFontColor('#38BDF8');
+
+    // Botón para volver al simulador principal
+    sheet.getRange('B2').insertCheckboxes();
+    sheet.getRange('C2:E2').merge()
+      .setValue('🏠 Volver al Simulador CPU')
+      .setFontFamily('Consolas')
+      .setFontWeight('bold')
+      .setBackground('#E0F2FE')
+      .setFontColor('#0369A1');
+
+    sheet.getRange('F2:M2').merge()
+      .setValue('UCB "San Pablo" | SIS-131: Arquitectura de Computadoras | Registro completo de ciclos de reloj')
+      .setFontFamily('Consolas')
+      .setFontSize(9)
+      .setHorizontalAlignment('center')
+      .setBackground('#334155')
+      .setFontColor('#94A3B8');
+
+    // 2. CABECERAS DE COLUMNAS (Fila 4)
+    const logHeaders = [
+      ['PASO #', 'HORA', 'FASE', 'INSTRUCCIÓN', 'DETALLE DE LA MICRO-OPERACIÓN (RTL / BUSES / ALU)', 'PC', 'IR', 'MAR', 'MDR', 'AX (Acumulador)', 'BX (Base)', 'BANDERAS (FLAGS)']
+    ];
+    sheet.getRange('B4:M4').setValues(logHeaders)
+      .setFontFamily('Consolas')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setBackground('#CBD5E1');
+
+    sheet.getRange('B5:M44').setBorder(true, true, true, true, true, true, '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange('B5:M44').setNumberFormat('@'); // Plain text
+
+    // Ajustar anchos generosos para legibilidad impecable
+    sheet.setColumnWidth(1, 15);  // Col A (Margen)
+    sheet.setColumnWidth(2, 65);  // Col B (#)
+    sheet.setColumnWidth(3, 85);  // Col C (Hora)
+    sheet.setColumnWidth(4, 115); // Col D (Fase)
+    sheet.setColumnWidth(5, 160); // Col E (Instrucción)
+    sheet.setColumnWidth(6, 400); // Col F (Detalle RTL - súper espacioso)
+    sheet.setColumnWidth(7, 65);  // Col G (PC)
+    sheet.setColumnWidth(8, 65);  // Col H (IR)
+    sheet.setColumnWidth(9, 65);  // Col I (MAR)
+    sheet.setColumnWidth(10, 65); // Col J (MDR)
+    sheet.setColumnWidth(11, 110); // Col K (AX)
+    sheet.setColumnWidth(12, 110); // Col L (BX)
+    sheet.setColumnWidth(13, 160); // Col M (FLAGS)
   }
 
   /**
@@ -107,6 +185,12 @@ class UIRenderer {
     sheet.activate();
     sheet.clear();
     sheet.setHiddenGridlines(false);
+
+    // Formatear también la pestaña dedicada de logs
+    this.formatLogsSheet();
+
+    // Volver a activar la pestaña principal para el usuario
+    sheet.activate();
 
     // 1. TÍTULO Y BANNER SUPERIOR (Filas 1 y 2)
     sheet.getRange('B1:X1').merge()
@@ -159,26 +243,36 @@ class UIRenderer {
       .setBackground('#F8FAFC')
       .setBorder(true, true, true, true, false, false);
 
-    // 3. LOG DE MICRO-OPERACIONES (Columnas B a G, Filas 14 a 28)
+    // 3. MONITOR EN VIVO (ÚLTIMAS MICRO-OPERACIONES) (Filas 14 a 20)
     sheet.getRange('B14:G14').merge()
-      .setValue('LOG CRONOLÓGICO DE MICRO-OPERACIONES (FETCH / DECODE / EXECUTE / STORE)')
+      .setValue('MONITOR EN VIVO (ÚLTIMAS MICRO-OPERACIONES)')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
       .setBackground('#0F172A')
       .setFontColor('#A7F3D0')
       .setHorizontalAlignment('center');
 
-    sheet.getRange('B15:G15').setValues([['HORA', 'FASE', 'DETALLE DE LA MICRO-OPERACIÓN (TRANSFERENCIAS / ALU)', '', '', '']])
+    sheet.getRange('B15:G15').setValues([['HORA', 'FASE', 'MICRO-OPERACIÓN ACTIVA (RTL / BUSES)', '', '', '']])
       .setFontFamily('Consolas')
       .setFontSize(9)
       .setFontWeight('bold')
       .setBackground('#E2E8F0');
     sheet.getRange('D15:G15').merge();
 
-    // Rellenar y fusionar filas de log vacías iniciales
-    for (let r = 16; r <= 28; r++) {
+    // Rellenar y fusionar las 4 filas del monitor en vivo
+    for (let r = 16; r <= 19; r++) {
       sheet.getRange(`D${r}:G${r}`).merge();
     }
+
+    // Nota / enlace a la pestaña de logs
+    sheet.getRange('B20:G20').merge()
+      .setValue('📋 Historial completo disponible en pestaña: Logs_MicroOperaciones ➔')
+      .setFontFamily('Consolas')
+      .setFontSize(8)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setBackground('#EFF6FF')
+      .setFontColor('#1D4ED8');
 
     // 4. MATRIZ DE MEMORIA RAM 16x16 (Columnas I a X, Filas 4 a 21)
     sheet.getRange('I4:X4').merge()
@@ -212,9 +306,9 @@ class UIRenderer {
     sheet.getRange('I6:X21').setBorder(true, true, true, true, true, true, '#94A3B8', SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange('I6:X21').setNumberFormat('@'); // Forzar texto plano para preservar "00", "01", "06", etc.
     sheet.getRange('C5:G11').setNumberFormat('@'); // Preservar 8 bits con ceros a la izquierda (00000001)
-    sheet.getRange('B16:G28').setNumberFormat('@'); // Preservar formato en logs
+    sheet.getRange('B16:G19').setNumberFormat('@'); // Preservar formato en monitor
 
-    // Leyenda de Segmentación (Filas 23 y 24)
+    // Leyenda de Segmentación (Filas 23)
     sheet.getRange('I23:M23').merge()
       .setValue('🟦 Segmento Código (00h-7Fh)')
       .setFontFamily('Consolas')
@@ -236,8 +330,8 @@ class UIRenderer {
       .setHorizontalAlignment('center')
       .setBackground(this.COLORS.HIGHLIGHT_FETCH);
 
-    // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 30 a 35)
-    sheet.getRange('B30:X30').merge()
+    // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 25 a 30)
+    sheet.getRange('B25:X25').merge()
       .setValue('🎮 PANEL DE CONTROL INTERACTIVO (Marca la casilla para accionar)')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
@@ -245,30 +339,50 @@ class UIRenderer {
       .setFontColor('#38BDF8')
       .setHorizontalAlignment('center');
 
-    // Controles de Ejecución (Fila 32)
+    // Controles de Ejecución (Fila 27)
+    sheet.getRange('B27').insertCheckboxes();
+    sheet.getRange('C27:E27').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('F27').insertCheckboxes();
+    sheet.getRange('G27:J27').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('K27').insertCheckboxes();
+    sheet.getRange('L27:O27').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('P27').insertCheckboxes();
+    sheet.getRange('Q27:T27').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    // Controles de Carga de Programas y Navegación (Fila 29)
+    sheet.getRange('B29').insertCheckboxes();
+    sheet.getRange('C29:E29').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('F29').insertCheckboxes();
+    sheet.getRange('G29:J29').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('K29').insertCheckboxes();
+    sheet.getRange('L29:O29').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+
+    sheet.getRange('P29').insertCheckboxes();
+    sheet.getRange('Q29:T29').merge().setValue('📋 Ver Hoja de Logs').setFontFamily('Consolas').setFontWeight('bold').setBackground('#E0F2FE').setFontColor('#0369A1');
+
+    // Compatibilidad adicional con filas 32 y 34 (por si el usuario hace clic abajo)
     sheet.getRange('B32').insertCheckboxes();
-    sheet.getRange('C32:E32').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
+    sheet.getRange('C32:E32').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas');
     sheet.getRange('F32').insertCheckboxes();
-    sheet.getRange('G32:J32').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
+    sheet.getRange('G32:J32').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas');
     sheet.getRange('K32').insertCheckboxes();
-    sheet.getRange('L32:O32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
+    sheet.getRange('L32:O32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas');
     sheet.getRange('P32').insertCheckboxes();
-    sheet.getRange('Q32:T32').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+    sheet.getRange('Q32:T32').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas');
 
-    // Controles de Carga de Programas (Fila 34)
     sheet.getRange('B34').insertCheckboxes();
-    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
+    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas');
     sheet.getRange('F34').insertCheckboxes();
-    sheet.getRange('G34:J34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
+    sheet.getRange('G34:J34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas');
     sheet.getRange('K34').insertCheckboxes();
-    sheet.getRange('L34:O34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+    sheet.getRange('L34:O34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas');
 
-    // Ajustar anchos de columnas para proporción y legibilidad perfectas (Evita solapamientos)
+    // Ajustar anchos de columnas para proporción y legibilidad perfectas
     sheet.setColumnWidth(1, 18);  // Col A (Margen)
     sheet.setColumnWidth(2, 155); // Col B (Registro / Hora)
     sheet.setColumnWidth(3, 105); // Col C (Valor Hex / Fase)
@@ -355,13 +469,13 @@ class UIRenderer {
   }
 
   /**
-   * Sincroniza las entradas del Logger en la tabla visual con insignias y colores de fase.
+   * Actualiza el Monitor en Vivo de 4 micro-operaciones en la hoja principal.
    * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
    * @param {Logger} logger
    */
-  updateLogs(sheet, logger) {
+  updateMiniMonitor(sheet, logger) {
     const log = logger || getLogger();
-    const entries = log.dumpForSheet(13);
+    const entries = log.dumpForMiniMonitor(4);
     
     const times = [];
     const badges = [];
@@ -369,7 +483,7 @@ class UIRenderer {
     const rowBgs = [];
     const badgeColors = [];
 
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 4; i++) {
       const item = entries[i];
       const timeVal = item[0];
       const phaseKey = item[1];
@@ -387,14 +501,58 @@ class UIRenderer {
       badgeColors.push([fg]);
     }
 
-    sheet.getRange('B16:B28').setValues(times).setHorizontalAlignment('center');
-    sheet.getRange('C16:C28').setValues(badges).setHorizontalAlignment('center').setFontWeight('bold').setFontColors(badgeColors);
+    sheet.getRange('B16:B19').setValues(times).setHorizontalAlignment('center');
+    sheet.getRange('C16:C19').setValues(badges).setHorizontalAlignment('center').setFontWeight('bold').setFontColors(badgeColors);
     
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 4; i++) {
       sheet.getRange(`D${16 + i}:G${16 + i}`).setValue(details[i][0]).setHorizontalAlignment('left').setWrap(false);
     }
     
-    sheet.getRange('B16:G28').setBackgrounds(rowBgs);
+    sheet.getRange('B16:G19').setBackgrounds(rowBgs);
+  }
+
+  /**
+   * Actualiza la tabla extendida de auditoría en la pestaña dedicada Logs_MicroOperaciones.
+   * @param {Logger} logger
+   */
+  updateDedicatedLogs(logger) {
+    try {
+      const logsSheet = this.getLogsSheet();
+      const log = logger || getLogger();
+      const entries = log.dumpForDedicatedSheet(40);
+      
+      const rowBgs = [];
+      const badgeColors = [];
+
+      for (let i = 0; i < 40; i++) {
+        const item = entries[i];
+        const phaseKey = item[2];
+        const style = this.PHASE_STYLES[phaseKey] || this.PHASE_STYLES.DEFAULT;
+        const bg = (phaseKey === '--') ? '#FFFFFF' : style.bg;
+        const fg = (phaseKey === '--') ? '#94A3B8' : style.text;
+        
+        const bgs = [];
+        for (let c = 0; c < 12; c++) bgs.push(bg);
+        rowBgs.push(bgs);
+        badgeColors.push([fg]);
+      }
+
+      logsSheet.getRange('B5:M44').setValues(entries);
+      logsSheet.getRange('B5:M44').setBackgrounds(rowBgs);
+      logsSheet.getRange('D5:D44').setFontColors(badgeColors).setFontWeight('bold');
+    } catch (e) {
+      console.log('Aviso: Pestaña de logs aún no inicializada o protegida: ' + e);
+    }
+  }
+
+  /**
+   * Sincroniza logs tanto en el monitor de la hoja principal como en la hoja de auditoría.
+   * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+   * @param {Logger} logger
+   */
+  updateLogs(sheet, logger) {
+    this.updateMiniMonitor(sheet, logger);
+    this.updateDedicatedLogs(logger);
   }
 
   /**

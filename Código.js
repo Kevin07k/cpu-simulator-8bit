@@ -37,3 +37,11 @@ function cargarFibonacci() {
 function cargarMultiplicacion() {
   btnLoadMultiplication();
 }
+
+function verHojaLogs() {
+  btnShowLogsSheet();
+}
+
+function verSimulador() {
+  btnShowSimulatorSheet();
+}
