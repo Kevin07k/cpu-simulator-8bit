@@ -68,6 +68,8 @@ function onEdit(e) {
     if (sheetName === ui.LOGS_SHEET_NAME) {
       if (a1 === 'B2') {
         btnShowSimulatorSheet();
+      } else if (a1 === 'F2') {
+        btnClearLogsSheet();
       }
       return;
     }
@@ -403,5 +405,24 @@ function btnShowSimulatorSheet() {
     getUI().getSheet().activate();
   } catch (e) {
     console.log('Error abriendo pestaña del simulador: ' + e);
+  }
+}
+
+/**
+ * Macro: Limpia el historial acumulativo en la pestaña dedicada de Logs y Auditoría.
+ */
+function btnClearLogsSheet() {
+  try {
+    const ui = getUI();
+    const log = getLogger();
+    const cpu = getCPU();
+
+    ui.clearDedicatedLogs();
+    log.clear();
+    saveState();
+    ui.renderCycle(cpu, log);
+    console.log('🧹 Historial de logs limpiado exitosamente.');
+  } catch (e) {
+    console.log('Error limpiando historial de logs: ' + e);
   }
 }

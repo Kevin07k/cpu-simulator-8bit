@@ -9,9 +9,9 @@
  */
 
 class Logger {
-  constructor(maxEntries = 60) {
-    this.maxEntries = maxEntries;
-    this.logs = [];
+  constructor() {
+    this.logs = []; // Últimas entradas para el monitor en vivo (máx 6)
+    this.pendingEntries = []; // Cola de entradas nuevas a volcar en la hoja infinita
   }
 
   /**
@@ -19,10 +19,12 @@ class Logger {
    */
   clear() {
     this.logs = [];
+    this.pendingEntries = [];
   }
 
   /**
    * Serializa las entradas del log para persistencia en PropertiesService.
+   * Guarda únicamente las últimas 6 entradas para no exceder la cuota de 9KB.
    * @returns {Array<Object>}
    */
   serialize() {
@@ -35,7 +37,7 @@ class Logger {
    */
   deserialize(data) {
     if (Array.isArray(data)) {
-      this.logs = data;
+      this.logs = data.slice(0, 6);
     }
   }
 
@@ -62,41 +64,24 @@ class Logger {
       flags: extra && extra.flags ? extra.flags : ''
     };
 
-    this.logs.unshift(entry); // Inserta al inicio (más reciente arriba)
-    if (this.logs.length > this.maxEntries) {
+    // 1. Guardar para el monitor en vivo (más reciente primero, máx 6 para PropertiesService)
+    this.logs.unshift(entry);
+    if (this.logs.length > 6) {
       this.logs.pop();
     }
+
+    // 2. Acumular en la cola de volcado para la hoja de cálculo infinita
+    this.pendingEntries.push(entry);
   }
 
   /**
-   * Exporta las entradas del log en formato extendido para la pestaña dedicada de Logs.
-   * @param {number} totalRows Cantidad de filas a rellenar en la tabla de la hoja
-   * @returns {Array<Array<string>>}
+   * Obtiene y vacía la cola de entradas pendientes de volcar a la hoja.
+   * @returns {Array<Object>}
    */
-  dumpForDedicatedSheet(totalRows = 40) {
-    const rows = [];
-    for (let i = 0; i < totalRows; i++) {
-      if (i < this.logs.length) {
-        const item = this.logs[i];
-        rows.push([
-          `#${item.step}`,
-          item.timestamp,
-          item.phase,
-          item.instruction || '--',
-          item.message,
-          item.pc || '--',
-          item.ir || '--',
-          item.mar || '--',
-          item.mdr || '--',
-          item.ax || '--',
-          item.bx || '--',
-          item.flags || '--'
-        ]);
-      } else {
-        rows.push(['--', '--', '--', '', '', '--', '--', '--', '--', '--', '--', '--']);
-      }
-    }
-    return rows;
+  consumePendingEntries() {
+    const entries = this.pendingEntries;
+    this.pendingEntries = [];
+    return entries;
   }
 
   /**
@@ -140,7 +125,7 @@ class Logger {
 var globalLogger = null;
 function getLogger() {
   if (!globalLogger) {
-    globalLogger = new Logger(60);
+    globalLogger = new Logger();
   }
   return globalLogger;
 }

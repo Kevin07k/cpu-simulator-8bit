@@ -119,6 +119,7 @@ class UIRenderer {
     const sheet = this.getLogsSheet();
     sheet.clear();
     sheet.setHiddenGridlines(false);
+    sheet.setFrozenRows(4); // Fija cabeceras para scroll infinito cómodo
 
     // 1. TÍTULO Y BANNER SUPERIOR
     sheet.getRange('B1:M1').merge()
@@ -139,8 +140,17 @@ class UIRenderer {
       .setBackground('#E0F2FE')
       .setFontColor('#0369A1');
 
-    sheet.getRange('F2:M2').merge()
-      .setValue('UCB "San Pablo" | SIS-131: Arquitectura de Computadoras | Registro completo de ciclos de reloj')
+    // Botón para limpiar historial de logs
+    sheet.getRange('F2').insertCheckboxes();
+    sheet.getRange('G2:H2').merge()
+      .setValue('🧹 Limpiar Historial')
+      .setFontFamily('Consolas')
+      .setFontWeight('bold')
+      .setBackground('#FEE2E2')
+      .setFontColor('#B91C1C');
+
+    sheet.getRange('I2:M2').merge()
+      .setValue('UCB "San Pablo" | Historial acumulativo infinito (sin límite de pasos)')
       .setFontFamily('Consolas')
       .setFontSize(9)
       .setHorizontalAlignment('center')
@@ -158,16 +168,13 @@ class UIRenderer {
       .setHorizontalAlignment('center')
       .setBackground('#CBD5E1');
 
-    sheet.getRange('B5:M44').setBorder(true, true, true, true, true, true, '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
-    sheet.getRange('B5:M44').setNumberFormat('@'); // Plain text
-
     // Ajustar anchos generosos para legibilidad impecable
     sheet.setColumnWidth(1, 15);  // Col A (Margen)
     sheet.setColumnWidth(2, 65);  // Col B (#)
     sheet.setColumnWidth(3, 85);  // Col C (Hora)
     sheet.setColumnWidth(4, 115); // Col D (Fase)
     sheet.setColumnWidth(5, 160); // Col E (Instrucción)
-    sheet.setColumnWidth(6, 400); // Col F (Detalle RTL - súper espacioso)
+    sheet.setColumnWidth(6, 420); // Col F (Detalle RTL - súper espacioso)
     sheet.setColumnWidth(7, 65);  // Col G (PC)
     sheet.setColumnWidth(8, 65);  // Col H (IR)
     sheet.setColumnWidth(9, 65);  // Col I (MAR)
@@ -175,6 +182,21 @@ class UIRenderer {
     sheet.setColumnWidth(11, 110); // Col K (AX)
     sheet.setColumnWidth(12, 110); // Col L (BX)
     sheet.setColumnWidth(13, 160); // Col M (FLAGS)
+  }
+
+  /**
+   * Limpia todas las filas de logs acumuladas en la hoja secundaria.
+   */
+  clearDedicatedLogs() {
+    try {
+      const sheet = this.getLogsSheet();
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= 5) {
+        sheet.getRange(5, 2, lastRow - 4, 12).clear();
+      }
+    } catch (e) {
+      console.log('Error limpiando logs dedicados: ' + e);
+    }
   }
 
   /**
@@ -512,47 +534,74 @@ class UIRenderer {
   }
 
   /**
-   * Actualiza la tabla extendida de auditoría en la pestaña dedicada Logs_MicroOperaciones.
+   * Añade de manera incremental e infinita todas las micro-operaciones pendientes
+   * a la pestaña de auditoría sin sobrescribir el historial previo.
    * @param {Logger} logger
    */
-  updateDedicatedLogs(logger) {
+  appendDedicatedLogs(logger) {
     try {
       const logsSheet = this.getLogsSheet();
       const log = logger || getLogger();
-      const entries = log.dumpForDedicatedSheet(40);
+      const pending = log.consumePendingEntries();
       
+      if (!pending || pending.length === 0) return;
+
+      const count = pending.length;
+      const lastRow = Math.max(logsSheet.getLastRow(), 4);
+      const startRow = lastRow + 1;
+
+      const rows = [];
       const rowBgs = [];
       const badgeColors = [];
 
-      for (let i = 0; i < 40; i++) {
-        const item = entries[i];
-        const phaseKey = item[2];
+      for (let i = 0; i < count; i++) {
+        const item = pending[i];
+        const phaseKey = item.phase;
         const style = this.PHASE_STYLES[phaseKey] || this.PHASE_STYLES.DEFAULT;
+        const badge = (phaseKey === '--') ? '--' : (this.PHASE_STYLES[phaseKey] ? this.PHASE_STYLES[phaseKey].badge : `⚪ ${phaseKey}`);
         const bg = (phaseKey === '--') ? '#FFFFFF' : style.bg;
         const fg = (phaseKey === '--') ? '#94A3B8' : style.text;
-        
+
+        rows.push([
+          `#${item.step}`,
+          item.timestamp,
+          badge,
+          item.instruction || '--',
+          item.message,
+          item.pc || '--',
+          item.ir || '--',
+          item.mar || '--',
+          item.mdr || '--',
+          item.ax || '--',
+          item.bx || '--',
+          item.flags || '--'
+        ]);
+
         const bgs = [];
         for (let c = 0; c < 12; c++) bgs.push(bg);
         rowBgs.push(bgs);
         badgeColors.push([fg]);
       }
 
-      logsSheet.getRange('B5:M44').setValues(entries);
-      logsSheet.getRange('B5:M44').setBackgrounds(rowBgs);
-      logsSheet.getRange('D5:D44').setFontColors(badgeColors).setFontWeight('bold');
+      const targetRange = logsSheet.getRange(startRow, 2, count, 12);
+      targetRange.setNumberFormat('@');
+      targetRange.setValues(rows);
+      targetRange.setBackgrounds(rowBgs);
+      targetRange.setBorder(true, true, true, true, true, true, '#CBD5E1', SpreadsheetApp.BorderStyle.SOLID);
+      logsSheet.getRange(startRow, 4, count, 1).setFontColors(badgeColors).setFontWeight('bold');
     } catch (e) {
-      console.log('Aviso: Pestaña de logs aún no inicializada o protegida: ' + e);
+      console.log('Aviso: Error agregando logs a hoja dedicada: ' + e);
     }
   }
 
   /**
-   * Sincroniza logs tanto en el monitor de la hoja principal como en la hoja de auditoría.
+   * Sincroniza logs tanto en el monitor de la hoja principal como en la hoja de auditoría infinita.
    * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
    * @param {Logger} logger
    */
   updateLogs(sheet, logger) {
     this.updateMiniMonitor(sheet, logger);
-    this.updateDedicatedLogs(logger);
+    this.appendDedicatedLogs(logger);
   }
 
   /**
