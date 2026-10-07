@@ -118,10 +118,12 @@ class UIRenderer {
   formatLogsSheet() {
     const sheet = this.getLogsSheet();
     sheet.clear();
+    sheet.clearDataValidations();
     sheet.setHiddenGridlines(false);
     sheet.setFrozenRows(4); // Fija cabeceras para scroll infinito cómodo
 
     // 1. TÍTULO Y BANNER SUPERIOR
+    sheet.getRange('B1:M1').clearDataValidations();
     sheet.getRange('B1:M1').merge()
       .setValue('AUDITORÍA Y REGISTRO CRONOLÓGICO DE MICRO-OPERACIONES (RTL & BUSES)')
       .setFontFamily('Consolas')
@@ -132,8 +134,17 @@ class UIRenderer {
       .setFontColor('#38BDF8');
 
     // Botón para volver al simulador principal
-    sheet.getRange('B2').insertCheckboxes();
-    sheet.getRange('C2:E2').merge()
+    const b2 = sheet.getRange('B2');
+    b2.clearDataValidations();
+    b2.clear();
+    b2.setNumberFormat('General');
+    b2.insertCheckboxes();
+    b2.setValue(false);
+
+    const c2 = sheet.getRange('C2:E2');
+    c2.clearDataValidations();
+    c2.clear();
+    c2.merge()
       .setValue('🏠 Volver al Simulador CPU')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
@@ -141,15 +152,27 @@ class UIRenderer {
       .setFontColor('#0369A1');
 
     // Botón para limpiar historial de logs
-    sheet.getRange('F2').insertCheckboxes();
-    sheet.getRange('G2:H2').merge()
+    const f2 = sheet.getRange('F2');
+    f2.clearDataValidations();
+    f2.clear();
+    f2.setNumberFormat('General');
+    f2.insertCheckboxes();
+    f2.setValue(false);
+
+    const g2 = sheet.getRange('G2:H2');
+    g2.clearDataValidations();
+    g2.clear();
+    g2.merge()
       .setValue('🧹 Limpiar Historial')
       .setFontFamily('Consolas')
       .setFontWeight('bold')
       .setBackground('#FEE2E2')
       .setFontColor('#B91C1C');
 
-    sheet.getRange('I2:M2').merge()
+    const i2 = sheet.getRange('I2:M2');
+    i2.clearDataValidations();
+    i2.clear();
+    i2.merge()
       .setValue('UCB "San Pablo" | Historial acumulativo infinito (sin límite de pasos)')
       .setFontFamily('Consolas')
       .setFontSize(9)
@@ -206,6 +229,7 @@ class UIRenderer {
     const sheet = this.getSheet();
     sheet.activate();
     sheet.clear();
+    sheet.clearDataValidations();
     sheet.setHiddenGridlines(false);
 
     // Formatear también la pestaña dedicada de logs
@@ -353,6 +377,7 @@ class UIRenderer {
       .setBackground(this.COLORS.HIGHLIGHT_FETCH);
 
     // 5. PANEL DE BOTONES INTERACTIVOS EN LA HOJA (Filas 25 a 30)
+    sheet.getRange('B25:X25').clearDataValidations();
     sheet.getRange('B25:X25').merge()
       .setValue('🎮 PANEL DE CONTROL INTERACTIVO (Marca la casilla para accionar)')
       .setFontFamily('Consolas')
@@ -361,34 +386,45 @@ class UIRenderer {
       .setFontColor('#38BDF8')
       .setHorizontalAlignment('center');
 
+    const setupButton = (checkCell, labelRange, labelText, bg = '#F1F5F9', fg = '#000000') => {
+      // 1. Casilla de verificación
+      const cRange = sheet.getRange(checkCell);
+      cRange.clearDataValidations();
+      cRange.clear();
+      cRange.setNumberFormat('General');
+      cRange.insertCheckboxes();
+      cRange.setValue(false);
+      cRange.setHorizontalAlignment('center');
+
+      // 2. Etiqueta / Botón (se limpian validaciones previas para evitar error 'no válido')
+      const lRange = sheet.getRange(labelRange);
+      lRange.clearDataValidations();
+      lRange.clear();
+      lRange.merge()
+        .setValue(labelText)
+        .setFontFamily('Consolas')
+        .setFontWeight('bold')
+        .setBackground(bg)
+        .setFontColor(fg)
+        .setVerticalAlignment('middle');
+    };
+
     // Controles de Ejecución (Fila 27)
-    sheet.getRange('B27').insertCheckboxes();
-    sheet.getRange('C27:E27').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
-    sheet.getRange('F27').insertCheckboxes();
-    sheet.getRange('G27:J27').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
-    sheet.getRange('K27').insertCheckboxes();
-    sheet.getRange('L27:O27').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
-    sheet.getRange('P27').insertCheckboxes();
-    sheet.getRange('Q27:T27').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+    setupButton('B27', 'C27:E27', '⏯️ Paso a Paso (Micro-fase)');
+    setupButton('F27', 'G27:J27', '⏭️ Instrucción Completa');
+    setupButton('K27', 'L27:O27', '▶️ Ejecutar Todo (Run)');
+    setupButton('P27', 'Q27:T27', '🔄 Reset CPU / Registros');
 
     // Controles de Carga de Programas y Navegación (Fila 29)
-    sheet.getRange('B29').insertCheckboxes();
-    sheet.getRange('C29:E29').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
+    setupButton('B29', 'C29:E29', '📂 Cargar Fibonacci');
+    setupButton('F29', 'G29:J29', '📂 Cargar Multiplicación');
+    setupButton('K29', 'L29:O29', '🛠️ Resetear Hoja (Setup)');
+    setupButton('P29', 'Q29:T29', '📋 Ver Hoja de Logs', '#E0F2FE', '#0369A1');
 
-    sheet.getRange('F29').insertCheckboxes();
-    sheet.getRange('G29:J29').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
-    sheet.getRange('K29').insertCheckboxes();
-    sheet.getRange('L29:O29').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas').setFontWeight('bold').setBackground('#F1F5F9');
-
-    sheet.getRange('P29').insertCheckboxes();
-    sheet.getRange('Q29:T29').merge().setValue('📋 Ver Hoja de Logs').setFontFamily('Consolas').setFontWeight('bold').setBackground('#E0F2FE').setFontColor('#0369A1');
-
-    // Limpiar cualquier fila residual debajo del panel de control
-    sheet.getRange('B31:X40').clear();
+    // Limpieza total y agresiva de casillas o validaciones fantasma en filas 30 a 100
+    const residualRange = sheet.getRange('A30:Z100');
+    residualRange.clear();
+    residualRange.clearDataValidations();
 
     // Ajustar anchos de columnas para proporción y legibilidad perfectas
     sheet.setColumnWidth(1, 18);  // Col A (Margen)
@@ -618,8 +654,47 @@ class UIRenderer {
     this.updateMemoryMatrix(sheet, proc.memory);
     this.updateRegistersAndState(sheet, proc);
     this.updateLogs(sheet, log);
+    this.cleanGhostCheckboxes(sheet);
 
     SpreadsheetApp.flush();
+  }
+
+  /**
+   * Elimina casillas de verificación huérfanas en filas inferiores y limpia validaciones
+   * erróneas en las etiquetas de los botones para evitar errores 'No válido'.
+   * @param {GoogleAppsScript.Spreadsheet.Sheet} [sheet]
+   */
+  cleanGhostCheckboxes(sheet) {
+    try {
+      const s = sheet || this.getSheet();
+      if (!s || s.getName() !== this.SHEET_NAME) return;
+
+      // 1. Limpiar validaciones residuales en las etiquetas para que no salgan triángulos rojos
+      const labelRanges = ['C27:E27', 'G27:J27', 'L27:O27', 'Q27:T27', 'C29:E29', 'G29:J29', 'L29:O29', 'Q29:T29'];
+      for (let i = 0; i < labelRanges.length; i++) {
+        s.getRange(labelRanges[i]).clearDataValidations();
+      }
+
+      // 2. Auto-recuperar casillas si alguna quedó con texto 'false'
+      const checkCells = ['B27', 'F27', 'K27', 'P27', 'B29', 'F29', 'K29', 'P29'];
+      for (let i = 0; i < checkCells.length; i++) {
+        const r = s.getRange(checkCells[i]);
+        const val = r.getValue();
+        if (typeof val === 'string' && (val.toLowerCase() === 'false' || val.toLowerCase() === 'true')) {
+          r.clearDataValidations();
+          r.clear();
+          r.setNumberFormat('General');
+          r.insertCheckboxes();
+          r.setValue(val.toLowerCase() === 'true');
+        }
+      }
+
+      // 3. Eliminar casillas fantasma desde la fila 30 hasta la 100
+      s.getRange('A30:Z100').clear();
+      s.getRange('A30:Z100').clearDataValidations();
+    } catch (e) {
+      console.log('Aviso limpiando casillas residuales: ' + e);
+    }
   }
 }
 

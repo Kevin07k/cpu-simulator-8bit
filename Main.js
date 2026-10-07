@@ -76,6 +76,9 @@ function onEdit(e) {
 
     // 2. Acciones desde la pestaña principal del Simulador
     if (sheetName === ui.SHEET_NAME) {
+      if (e.range.getRow() >= 30) {
+        ui.cleanGhostCheckboxes(sheet);
+      }
       if (a1 === 'B27' || a1 === 'B32') {
         btnStepPhase();
       } else if (a1 === 'F27' || a1 === 'F32') {
