@@ -118,7 +118,9 @@ class UIRenderer {
   formatLogsSheet() {
     const sheet = this.getLogsSheet();
     sheet.clear();
-    sheet.clearDataValidations();
+    try {
+      sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+    } catch (e) {}
     sheet.setHiddenGridlines(false);
     sheet.setFrozenRows(4); // Fija cabeceras para scroll infinito cómodo
 
@@ -229,7 +231,9 @@ class UIRenderer {
     const sheet = this.getSheet();
     sheet.activate();
     sheet.clear();
-    sheet.clearDataValidations();
+    try {
+      sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+    } catch (e) {}
     sheet.setHiddenGridlines(false);
 
     // Formatear también la pestaña dedicada de logs
