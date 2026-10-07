@@ -357,7 +357,7 @@ function btnRunContinuous() {
     return;
   }
 
-  const MAX_CYCLES = 350; // Guardia de seguridad contra bucles infinitos
+  const MAX_CYCLES = 650; // Permite completar las 12 iteraciones de Fibonacci hasta HLT (0xE9)
   let cycles = 0;
 
   while (!cpu.isHalted && cycles < MAX_CYCLES) {
