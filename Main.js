@@ -60,7 +60,28 @@ function onEdit(e) {
   const a1 = e.range.getA1Notation();
   const val = e.value;
 
-  // Si se marcó una casilla (TRUE), ejecutar la acción correspondiente y desmarcarla
+  // 1. Detección de edición manual directa en la matriz de memoria RAM (I6:X21)
+  const row = e.range.getRow();
+  const col = e.range.getColumn();
+  if (sheetName === ui.SHEET_NAME && row >= 6 && row <= 21 && col >= 9 && col <= 24) {
+    const addr = (row - 6) * 16 + (col - 9);
+    let numVal = 0;
+    if (typeof val === 'number') {
+      numVal = Math.floor(val) & 0xFF;
+    } else {
+      const cleanStr = String(val !== undefined && val !== null ? val : '').trim().replace(/^0x/i, '');
+      numVal = parseInt(cleanStr, 16);
+      if (isNaN(numVal)) numVal = 0;
+    }
+    const hexStr = Memory.toHex8(numVal);
+    e.range.setValue(hexStr); // Normaliza a formato hex de 2 dígitos (ej: '8' -> '08')
+    const mem = getMemory();
+    mem.bytes[addr] = numVal;
+    saveState();
+    return;
+  }
+
+  // 2. Si se marcó una casilla (TRUE), ejecutar la acción correspondiente y desmarcarla
   if (val === 'TRUE' || val === true) {
     e.range.setValue(false); // Reset automático de la casilla
 
@@ -153,6 +174,34 @@ function loadState() {
     for (let i = 0; i < rawArr.length; i++) {
       mem.bytes[i] = rawArr[i];
     }
+  }
+
+  // Sincronización en vivo desde la matriz de RAM en la hoja (I6:X21)
+  // Permite que cualquier modificación manual de datos o código en pantalla sea respetada de inmediato
+  try {
+    const sheet = getUI().getSheet();
+    if (sheet) {
+      const ramGrid = sheet.getRange('I6:X21').getValues();
+      for (let r = 0; r < 16; r++) {
+        for (let c = 0; c < 16; c++) {
+          const addr = (r * 16) + c;
+          const raw = ramGrid[r][c];
+          if (raw !== '' && raw !== null && raw !== undefined) {
+            let numVal = 0;
+            if (typeof raw === 'number') {
+              numVal = Math.floor(raw) & 0xFF;
+            } else {
+              const clean = String(raw).trim().replace(/^0x/i, '');
+              numVal = parseInt(clean, 16);
+              if (isNaN(numVal)) numVal = 0;
+            }
+            mem.bytes[addr] = numVal & 0xFF;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Aviso sincronizando RAM desde la hoja: ' + e);
   }
 
   if (logsStr) {
