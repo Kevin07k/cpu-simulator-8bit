@@ -57,8 +57,13 @@ class CPU {
   stepPhase() {
     if (this.isHalted) {
       this.lastMicroOpLog = `[HALT] El procesador está detenido. Ejecute RESET para reiniciar.`;
-      return this.getState();
+      const state = this.getState();
+      state.phase = 'HALT';
+      state.executedPhase = 'HALT';
+      return state;
     }
+
+    const executedPhase = this.currentPhase; // Fase que se ejecuta en este paso
 
     switch (this.currentPhase) {
       case CPU_PHASES.FETCH:
@@ -88,7 +93,10 @@ class CPU {
     }
 
     this.cycleCount++;
-    return this.getState();
+    const state = this.getState();
+    state.executedPhase = executedPhase;
+    state.phase = executedPhase; // Garantiza que el Logger reciba la fase ejecutada (FETCH, DECODE, EXECUTE, STORE)
+    return state;
   }
 
   /**

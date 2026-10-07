@@ -387,22 +387,8 @@ class UIRenderer {
     sheet.getRange('P29').insertCheckboxes();
     sheet.getRange('Q29:T29').merge().setValue('📋 Ver Hoja de Logs').setFontFamily('Consolas').setFontWeight('bold').setBackground('#E0F2FE').setFontColor('#0369A1');
 
-    // Compatibilidad adicional con filas 32 y 34 (por si el usuario hace clic abajo)
-    sheet.getRange('B32').insertCheckboxes();
-    sheet.getRange('C32:E32').merge().setValue('⏯️ Paso a Paso (Micro-fase)').setFontFamily('Consolas');
-    sheet.getRange('F32').insertCheckboxes();
-    sheet.getRange('G32:J32').merge().setValue('⏭️ Instrucción Completa').setFontFamily('Consolas');
-    sheet.getRange('K32').insertCheckboxes();
-    sheet.getRange('L32:O32').merge().setValue('▶️ Ejecutar Todo (Run)').setFontFamily('Consolas');
-    sheet.getRange('P32').insertCheckboxes();
-    sheet.getRange('Q32:T32').merge().setValue('🔄 Reset CPU / Registros').setFontFamily('Consolas');
-
-    sheet.getRange('B34').insertCheckboxes();
-    sheet.getRange('C34:E34').merge().setValue('📂 Cargar Fibonacci').setFontFamily('Consolas');
-    sheet.getRange('F34').insertCheckboxes();
-    sheet.getRange('G34:J34').merge().setValue('📂 Cargar Multiplicación').setFontFamily('Consolas');
-    sheet.getRange('K34').insertCheckboxes();
-    sheet.getRange('L34:O34').merge().setValue('🛠️ Resetear Hoja (Setup)').setFontFamily('Consolas');
+    // Limpiar cualquier fila residual debajo del panel de control
+    sheet.getRange('B31:X40').clear();
 
     // Ajustar anchos de columnas para proporción y legibilidad perfectas
     sheet.setColumnWidth(1, 18);  // Col A (Margen)
